@@ -3,7 +3,7 @@
   "sites": [
     {
       "key": "Douban",
-      "name": "¶¹°ê|Ê×Ò³",
+      "name": "è±†ç“£|é¦–é¡µ",
       "type": 3,
       "api": "csp_Douban",
       "searchable": 0,
@@ -12,7 +12,7 @@
     },
     {
       "key": "DianYingYunJi",
-      "name": "µçÓ°ÔÆ¼¯",
+      "name": "ç”µå½±äº‘é›†",
       "type": 3,
       "api": "csp_DianYingYunJi",
       "searchable": 1,
@@ -21,7 +21,7 @@
     },
     {
       "key": "BD",
-      "name": "BD|Ê×Ò³",
+      "name": "BD|é¦–é¡µ",
       "type": 3,
       "api": "csp_BD",
       "searchable": 1,
@@ -30,7 +30,7 @@
     },
     {
       "key": "Ddrk",
-      "name": "µÍ¶Ë|Ê×Ò³",
+      "name": "ä½ç«¯|é¦–é¡µ",
       "type": 3,
       "api": "csp_Ddrk",
       "searchable": 1,
@@ -49,17 +49,8 @@
       "ext": ""
     },
     {
-      "key": "YHDM",
-      "name": "Ó£»¨",
-      "type": 3,
-      "api": "csp_YHDM",
-      "searchable": 1,
-      "changeable": 0,
-      "ext": ""
-    },
-    {
       "key": "NCat",
-      "name": "Íø·ÉÃ¨ | Ó°ÊÓ",
+      "name": "ç½‘é£çŒ« | å½±è§†",
       "type": 3,
       "api": "csp_NCat",
       "searchable": 1,
@@ -68,7 +59,7 @@
     },
     {
       "key": "glod",
-      "name": "½ğÅÆ | Ó°ÊÓ",
+      "name": "é‡‘ç‰Œ | å½±è§†",
       "type": 3,
       "api": "csp_Glod",
       "searchable": 0,
@@ -76,8 +67,17 @@
       "ext": {}
     },
     {
+      "key": "DUB",
+      "name": "DUB",
+      "type": 3,
+      "api": "csp_DUB",
+      "searchable": 0,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
       "key": "QxiTv",
-      "name": "ÆßÏ² | Ó°ÊÓ",
+      "name": "ä¸ƒå–œ | å½±è§†",
       "type": 3,
       "api": "csp_QxiTv",
       "searchable": 1,
@@ -85,8 +85,8 @@
       "ext": {}
     },
     {
-      "key": "¼××Ó",
-      "name": "¼××Ó",
+      "key": "ç”²å­",
+      "name": "ç”²å­",
       "type": 3,
       "api": "csp_AppYsV2",
       "searchable": 1,
@@ -94,7 +94,7 @@
     },
     {
       "key": "NN",
-      "name": "Äà°Í|Ê×Ò³",
+      "name": "æ³¥å·´|é¦–é¡µ",
       "type": 3,
       "api": "csp_NiNi",
       "searchable": 1,
@@ -102,7 +102,7 @@
     },
     {
       "key": "NG",
-      "name": "¹Ï¹Ï",
+      "name": "ç“œç“œ",
       "type": 3,
       "api": "csp_NG",
       "searchable": 1,
@@ -111,7 +111,7 @@
     },
     {
       "key": "Liangzi",
-      "name": "Á¿×ÓÓ°ÊÓ",
+      "name": "é‡å­å½±è§†",
       "type": 3,
       "api": "csp_Liangzi",
       "searchable": "1",
@@ -121,7 +121,7 @@
     },
     {
       "key": "ChangZhang",
-      "name": "³§³¤Ó°ÊÓ",
+      "name": "å‚é•¿å½±è§†",
       "type": 3,
       "api": "csp_ChangZhang",
       "searchable": "1",
@@ -131,7 +131,7 @@
     },
     {
       "key": "Zxzj",
-      "name": "ÔÚÏßÖ®¼Ò",
+      "name": "åœ¨çº¿ä¹‹å®¶",
       "type": 3,
       "api": "csp_Zxzj",
       "searchable": "1",
@@ -141,7 +141,7 @@
     },
     {
       "key": "Mtyy",
-      "name": "ÂóÌïÓ°Ôº",
+      "name": "éº¦ç”°å½±é™¢",
       "type": 3,
       "api": "csp_Mtyy",
       "searchable": "1",
@@ -151,7 +151,7 @@
     },
     {
       "key": "Ikanbot",
-      "name": "°®¿´»úÆ÷ÈË",
+      "name": "çˆ±çœ‹æœºå™¨äºº",
       "type": 3,
       "api": "csp_Ikanbot",
       "searchable": "1",
@@ -160,8 +160,16 @@
       "ext": {}
     },
     {
+      "key": "JustLive",
+      "name": "JustLive | ç›´æ’­",
+      "type": 3,
+      "api": "csp_JustLive",
+      "searchable": 1,
+      "filterable": 1
+    },
+    {
       "key": "DaGongRen",
-      "name": "´ò¹¤ÈË",
+      "name": "æ‰“å·¥äºº",
       "type": 3,
       "api": "csp_DaGongRen",
       "searchable": "1",
@@ -171,3 +179,226 @@
     }
   ]
 }
+Chat
+
+New Conversation
+
+ğŸ¤“ Explain a complex thing
+
+Explain Artificial Intelligence so that I can explain it to my six-year-old child.
+
+
+ğŸ§  Get suggestions and create new ideas
+
+Please give me the best 10 travel ideas around the world
+
+
+ğŸ’­ Translate, summarize, fix grammar and moreâ€¦
+
+Translate "I love you" French
+
+
+GPT-4o Mini
+Hello, how can I help you today?
+GPT-4o Mini
+coin image
+10
+Upgrade
+
+
+
+{
+  "spider": "../jar/spider.jar;md5;65ac46325a31f9edc1fb147c24a1d3bf",
+  "sites": [
+    {
+      "key": "Douban",
+      "name": "è±†ç“£|é¦–é¡µ",
+      "type": 3,
+      "api": "csp_Douban",
+      "searchable": 0,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "DianYingYunJi",
+      "name": "ç”µå½±äº‘é›†",
+      "type": 3,
+      "api": "csp_DianYingYunJi",
+      "searchable": 1,
+      "changeable": 1,
+      "ext": {}
+    },
+    {
+      "key": "BD",
+      "name": "BD|é¦–é¡µ",
+      "type": 3,
+      "api": "csp_BD",
+      "searchable": 1,
+      "changeable": 0,
+      "ext": "aHR0cHM6Ly93d3cueGx5czAxLmNvbS8="
+    },
+    {
+      "key": "Ddrk",
+      "name": "ä½ç«¯|é¦–é¡µ",
+      "type": 3,
+      "api": "csp_Ddrk",
+      "searchable": 1,
+      "changeable": 0,
+      "ext": {
+        "site": "https://ddys.info/"
+      }
+    },
+    {
+      "key": "xb6v",
+      "name": "xb6v",
+      "type": 3,
+      "api": "csp_Xb6v",
+      "searchable": 1,
+      "changeable": 0,
+      "ext": ""
+    },
+    {
+      "key": "NCat",
+      "name": "ç½‘é£çŒ« | å½±è§†",
+      "type": 3,
+      "api": "csp_NCat",
+      "searchable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "glod",
+      "name": "é‡‘ç‰Œ | å½±è§†",
+      "type": 3,
+      "api": "csp_Glod",
+      "searchable": 0,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "DUB",
+      "name": "DUB",
+      "type": 3,
+      "api": "csp_DUB",
+      "searchable": 0,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "QxiTv",
+      "name": "ä¸ƒå–œ | å½±è§†",
+      "type": 3,
+      "api": "csp_QxiTv",
+      "searchable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "ç”²å­",
+      "name": "ç”²å­",
+      "type": 3,
+      "api": "csp_AppYsV2",
+      "searchable": 1,
+      "ext": "http://211.101.237.197:6532/api.php/app/"
+    },
+    {
+      "key": "NN",
+      "name": "æ³¥å·´|é¦–é¡µ",
+      "type": 3,
+      "api": "csp_NiNi",
+      "searchable": 1,
+      "changeable": 1
+    },
+    {
+      "key": "NG",
+      "name": "ç“œç“œ",
+      "type": 3,
+      "api": "csp_NG",
+      "searchable": 1,
+      "changeable": 1,
+      "ext": {}
+    },
+    {
+      "key": "Liangzi",
+      "name": "é‡å­å½±è§†",
+      "type": 3,
+      "api": "csp_Liangzi",
+      "searchable": "1",
+      "filterable": "0",
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "ChangZhang",
+      "name": "å‚é•¿å½±è§†",
+      "type": 3,
+      "api": "csp_ChangZhang",
+      "searchable": "1",
+      "filterable": "0",
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "Zxzj",
+      "name": "åœ¨çº¿ä¹‹å®¶",
+      "type": 3,
+      "api": "csp_Zxzj",
+      "searchable": "1",
+      "filterable": "0",
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "Mtyy",
+      "name": "éº¦ç”°å½±é™¢",
+      "type": 3,
+      "api": "csp_Mtyy",
+      "searchable": "1",
+      "filterable": "0",
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "Ikanbot",
+      "name": "çˆ±çœ‹æœºå™¨äºº",
+      "type": 3,
+      "api": "csp_Ikanbot",
+      "searchable": "1",
+      "filterable": "0",
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "JustLive",
+      "name": "JustLive | ç›´æ’­",
+      "type": 3,
+      "api": "csp_JustLive",
+      "searchable": 1,
+      "filterable": 1
+    },
+    {
+      "key": "DaGongRen",
+      "name": "æ‰“å·¥äºº",
+      "type": 3,
+      "api": "csp_DaGongRen",
+      "searchable": "1",
+      "filterable": "0",
+      "changeable": 0,
+      "ext": {}
+    }
+  ]
+}
+
+
+
+
+
+Powered by AITOPIA 
+Chat
+Ask
+Search
+Write
+Image
+ChatPDF
+Vision
+Full Page
