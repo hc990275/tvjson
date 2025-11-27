@@ -1,1 +1,56 @@
-{ "urls": [ { "url": "http://www.饭太硬.com/tv", "name": "🇨🇳饭太硬线路🇨🇳" }, { "url": "https://9280.kstore.space/wex.json", "name": "🇨🇳王二小线路🇨🇳" }, { "url": "http://ok321.top/tv", "name": "🇨🇳OK线路🇨🇳" }, { "url": "http://fmys.top/fmys.json", "name": "🇨🇳驸马线路🇨🇳" }, { "url": "http://肥猫.com", "name": "🇨🇳肥猫线路🇨🇳" }, { "url": "http://tv.laohu.cool/tvbox.json", "name": "🇨🇳天天线路🇨🇳" }, { "url": "https://毒盒.com/tv", "name": "🇨🇳毒盒线路🇨🇳" }, { "url": "https://gitee.com/yiwu369/6758/raw/master/1.json", "name": "🇨🇳青龙线路🇨🇳" }, { "url": "http://mitvbox.xyz/%E5%B0%8F%E7%B1%B3/DEMO.json", "name": "🇨🇳小米线路🇨🇳" }, { "url": "https://ghproxy.net/https://raw.githubusercontent.com/yoursmile66/TVBox/main/XC.json", "name": "🇨🇳南风线路🇨🇳" }, { "url": "https://9877.kstore.space/AnotherD/api.json", "name": "🇨🇳潇洒🇨🇳" }, { "url": "https://jihulab.com/ymz1231/xymz/-/raw/main/ymshaoer", "name": "🇨🇳少儿频道🇨🇳" }, { "url": "http://box.ufuzi.com/tv/qq/短剧频道/api.json", "name": "🇨🇳短剧🇨🇳" } ] 
+{
+  "urls": [
+    {
+      "url": "http://www.饭太硬.com/tv",
+      "name": "🇨🇳饭太硬线路🇨🇳"
+    },
+    {
+      "url": "https://9280.kstore.space/wex.json",
+      "name": "🇨🇳王二小线路🇨🇳"
+    },
+    {
+      "url": "http://ok321.top/tv",
+      "name": "🇨🇳OK线路🇨🇳"
+    },
+    {
+      "url": "http://fmys.top/fmys.json",
+      "name": "🇨🇳驸马线路🇨🇳"
+    },
+    {
+      "url": "http://肥猫.com",
+      "name": "🇨🇳肥猫线路🇨🇳"
+    },
+    {
+      "url": "http://tv.laohu.cool/tvbox.json",
+      "name": "🇨🇳天天线路🇨🇳"
+    },
+    {
+      "url": "https://毒盒.com/tv",
+      "name": "🇨🇳毒盒线路🇨🇳"
+    },
+    {
+      "url": "https://gitee.com/yiwu369/6758/raw/master/1.json",
+      "name": "🇨🇳青龙线路🇨🇳"
+    },
+    {
+      "url": "http://mitvbox.xyz/%E5%B0%8F%E7%B1%B3/DEMO.json",
+      "name": "🇨🇳小米线路🇨🇳"
+    },
+    {
+      "url": "https://ghproxy.net/https://raw.githubusercontent.com/yoursmile66/TVBox/main/XC.json",
+      "name": "🇨🇳南风线路🇨🇳"
+    },
+    {
+      "url": "https://9877.kstore.space/AnotherD/api.json",
+      "name": "🇨🇳潇洒🇨🇳"
+    },
+    {
+      "url": "https://jihulab.com/ymz1231/xymz/-/raw/main/ymshaoer",
+      "name": "🇨🇳少儿频道🇨🇳"
+    },
+    {
+      "url": "http://box.ufuzi.com/tv/qq/短剧频道/api.json",
+      "name": "🇨🇳短剧🇨🇳"
+    }
+  ]
+}
