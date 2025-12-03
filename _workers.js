@@ -7,8 +7,8 @@
 // 增加了Token管理
 // 新增CFnew自动更新引用url
 // 自定义优质IP数量
-const FAST_IP_COUNT = 20; // 修改这个数字来自定义优质IP数量
-const AUTO_TEST_MAX_IPS = 200; // 自动测速的最大IP数量，避免测速过多导致超时
+const FAST_IP_COUNT = 30; // 修改这个数字来自定义优质IP数量
+const AUTO_TEST_MAX_IPS = 300; // 自动测速的最大IP数量，避免测速过多导致超时
 
 export default {
     async scheduled(event, env, ctx) {
