@@ -14,11 +14,14 @@
 * **CloudFlare 优选 IPv4：** [点击获取](https://www.wetest.vip/page/cloudflare/address_v4.html)
 
 ---
-
-## 🛡️ DOH 服务器列表 (DNS over HTTPS)
+# 🛡️ DOH 服务器列表 (DNS over HTTPS)
 
 | 提供商 | DOH 地址 | 状态 |
 | :--- | :--- | :--- |
 | **阿里云** | `https://dns.alidns.com/dns-query` | 默认 |
 | **腾讯 DNSPod** | `https://doh.pub/dns-query` | |
 | **360 安全 DNS** | `https://doh.360.cn/dns-query` | |
+
+---
+
+> **注意：** 上述表格中的 DOH 地址可以直接复制使用。
