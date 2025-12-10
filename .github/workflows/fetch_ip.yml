@@ -3,7 +3,7 @@ name: Update IP and Time (BJ)
 on:
   schedule:
     # GitHub 免费版限制最小间隔约 5 分钟
-    - cron: '*/5 * * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 # --- 核心配置区域 (修改这里的文件名即可) ---
