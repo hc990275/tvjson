@@ -4,6 +4,7 @@ name: 🚀 Fetch & Rank Best IPs (1 Min Cycle)
 on:
   schedule:
     # '*/1 * * * *' 表示每小时的每分钟都运行一次
+    # 注意：GitHub Actions 的最低执行间隔通常为 5 分钟。
     - cron: '*/1 * * * *' 
   # 允许手动触发
   workflow_dispatch:
@@ -20,21 +21,20 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. 设置 Python 环境（使用 Python 进行数据处理）
+      # 2. 设置 Python 环境
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      # 3. 安装依赖库（用于网页解析和数据处理）
+      # 3. 安装依赖库（requests 和 beautifulsoup4 用于网页解析）
       - name: Install Dependencies
         run: pip install requests beautifulsoup4
 
       # 4. 执行 IP 抓取、排名并保存结果
-      # 将核心逻辑放在一个独立的 Python 脚本中执行
       - name: Run IP Fetching and Ranking Script
         run: |
-          # 将 Python 脚本内嵌到工作流中
+          # 将 Python 脚本内嵌到工作流中，注意：脚本内容紧贴左边缘，避免 YAML 语法错误
           cat << EOF > rank_script.py
 import requests
 from bs4 import BeautifulSoup
@@ -61,7 +61,7 @@ def fetch_and_parse(url, source_name):
     soup = BeautifulSoup(response.text, 'html.parser')
     data_list = []
     
-    # 定位到数据表格，这里假设只有一个表格，或者第一个是目标表格
+    # 定位到数据表格
     table = soup.find('table')
     if not table:
         print(f"警告: 在 {source_name} 页面未找到数据表格。")
@@ -75,11 +75,10 @@ def fetch_and_parse(url, source_name):
         if len(columns) < 5: 
             continue 
 
-        # 核心数据提取：通过 data-label 匹配字段
+        # 核心数据提取
         try:
             line_name = columns[0].text.strip()
             ip_address = columns[1].text.strip()
-            # 峰值速度通常是第4列 (索引为3)
             speed_text = columns[3].text.strip() 
 
             # 提取速度值（转换为整数用于排序）
@@ -87,7 +86,7 @@ def fetch_and_parse(url, source_name):
             if match:
                 speed_value = int(match.group(1)) # 提取数字部分
             else:
-                continue # 跳过无法解析速度的行
+                continue
             
             data_list.append({
                 '峰值速度_数值': speed_value,
@@ -96,7 +95,6 @@ def fetch_and_parse(url, source_name):
                 '来源': source_name
             })
         except IndexError:
-             # 处理列数不足或格式不符合预期的情况
             continue
             
     return data_list
@@ -108,7 +106,6 @@ for source, url in URLS.items():
 
 if not all_data:
     print("没有成功提取到任何 IP 数据。")
-    # 允许工作流失败，如果需要的话可以改成 exit(1)
     exit(0) 
 
 # 5. 排序：按速度降序排列
@@ -119,12 +116,10 @@ sorted_data = sorted(
 )
 
 # 6. 保存排名第一的 IP 地址到文件 (供携程使用)
-# 文件名可以自定义，例如 top_ip.txt
 output_filename = "top_ip.txt" 
 with open(output_filename, "w", encoding="utf-8") as f:
     if sorted_data:
         best_ip = sorted_data[0]['优选地址']
-        # 只写入排名第一的IP地址，以便您的携程脚本直接读取
         f.write(best_ip + "\n")
         
         print(f"\n--- 最佳 IP 地址已保存到 {output_filename} ---")
@@ -134,12 +129,6 @@ with open(output_filename, "w", encoding="utf-8") as f:
     else:
         print("警告：排序后列表为空，未生成 top_ip.txt 文件。")
 
-# 7. (可选) 保存完整的排名列表用于调试
-# output_full_filename = "ip_full_rank.txt"
-# with open(output_full_filename, "w", encoding="utf-8") as f:
-#     for i, item in enumerate(sorted_data):
-#         f.write(f"{i+1}. [{item['来源']}] {item['峰值速度_数值']} kB/s -> {item['优选地址']} ({item['线路名称']})\n")
-# print(f"完整排名已保存到 {output_full_filename}")
 EOF
 
           # 执行 Python 脚本
@@ -158,7 +147,8 @@ EOF
           else
             echo "检测到 top_ip.txt 内容有更新，正在提交并推送..."
             git add top_ip.txt
-            git commit -m "chore(auto): Update best ranked IP (${IP_ADDRESS})"
+            # 简化提交信息，确保工作流成功
+            git commit -m "chore(auto): Update best ranked IP" 
             git push
             echo "提交推送完成。"
           fi
