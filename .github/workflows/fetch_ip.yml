@@ -1,70 +1,57 @@
 name: Fetch and Update Cloudflare IP List
 
-# 1. 设置触发方式
+# 保持为15分钟，因为1分钟过于频繁，且我们已经排除了时间间隔大的问题
 on:
-  # 每15分钟自动运行一次
   schedule:
-    # cron表达式：每小时的 0, 15, 30, 45 分钟运行
-    - cron: '*/1 * * * *'
-  # 允许在 GitHub 界面手动点击“Run workflow”来触发
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 jobs:
   fetch_and_commit:
     runs-on: ubuntu-latest
-
-    # 授予写入权限，以便脚本能够将更改（IP.txt）推送到仓库
     permissions:
       contents: write 
 
     steps:
       - name: Checkout repository
-        # 步骤：检出您的仓库代码
         uses: actions/checkout@v4
 
-      - name: Fetch, Extract, and Save IP data
+      - name: Fetch, Extract, and Save IP data (Diagnostic Mode)
         run: |
-          # 抓取数据的目标 URL
           IP_URL="https://www.wetest.vip/page/cloudflare/address_v4.html"
           
-          echo "开始从 ${IP_URL} 抓取数据..."
+          echo "开始从 ${IP_URL} 抓取数据并保存到临时文件..."
+          # 1. 使用 curl 抓取网页内容并保存到临时文件
+          curl -s $IP_URL > raw_html.txt
+          
+          # 2. 【核心诊断步骤】打印包含 IP 地址的关键 HTML 片段到日志
+          echo "----------------------------------------"
+          echo "工作流抓取到的原始 HTML 片段 (用于对比):"
+          # 打印所有包含 '优选地址' 标签的行
+          grep '<td data-label="优选地址">' raw_html.txt
+          echo "----------------------------------------"
+          
+          # 3. 从临时文件中提取 IP 并保存到 IP.txt
+          grep -oP '<td data-label="优选地址">\K[0-9.]+' raw_html.txt > IP.txt
 
-          # 核心抓取和处理逻辑：
-          # 1. curl -s $IP_URL：静默抓取网页内容。
-          # 2. grep -oP '<td data-label="优选地址">\K[0-9.]+'：
-          #    - -o: 只输出匹配的部分。
-          #    - -P: 启用 Perl 兼容正则表达式。
-          #    - '<td data-label="优选地址">\K': 匹配 IP 地址标签，但使用 \K 丢弃匹配的内容，
-          #      从而只保留后面 IP 地址部分。
-          #    - '[0-9.]+'：匹配 IP 地址 (数字和点)。
-          # 3. > IP.txt：将所有提取的 IP 地址（每行一个）重定向保存到 IP.txt 文件中。
-          curl -s $IP_URL | \
-          grep -oP '<td data-label="优选地址">\K[0-9.]+' > IP.txt
-
-          # 检查 IP.txt 是否有数据
+          # 4. 检查 IP.txt 是否有数据
           if [ -s IP.txt ]; then
             echo "成功提取 $(wc -l < IP.txt) 个 IP 地址到 IP.txt。"
           else
             echo "警告：IP.txt 文件为空，请检查 URL 或提取正则是否正确！"
-            # 如果抓取失败，停止工作流以避免提交空文件
             exit 1 
           fi
 
       - name: Commit and push changes
-        # 步骤：检查 IP.txt 是否有变化，如果有则提交并推送
         run: |
-          # 配置 Git 身份，使用 GitHub Actions 官方机器人身份
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           
-          # 检查 IP.txt 文件与上次提交相比是否有实际内容更改
-          # --quiet 参数表示如果文件没有差异则退出状态码为 0
           if git diff --quiet IP.txt; then
             echo "IP.txt 内容无变化，跳过提交。"
           else
             echo "检测到 IP.txt 内容有更新，正在提交并推送..."
             git add IP.txt
-            # 使用一个清晰的提交信息
             git commit -m "chore(auto): Update Cloudflare IP list via GitHub Actions"
             git push
             echo "提交推送完成。"
