@@ -1,58 +1,164 @@
-name: Fetch and Update Cloudflare IP List
+name: 🚀 Fetch & Rank Best IPs (1 Min Cycle)
 
-# 保持为15分钟，因为1分钟过于频繁，且我们已经排除了时间间隔大的问题
+# 1. 触发事件：保持每分钟运行
 on:
   schedule:
-    - cron: '*/1 * * * *'
+    # '*/1 * * * *' 表示每小时的每分钟都运行一次
+    - cron: '*/1 * * * *' 
+  # 允许手动触发
   workflow_dispatch:
 
 jobs:
-  fetch_and_commit:
+  fetch_and_rank:
+    # 运行环境
     runs-on: ubuntu-latest
+    # 赋予写入权限，以便提交更改到仓库
     permissions:
       contents: write 
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Fetch, Extract, and Save IP data (Diagnostic Mode)
+      # 2. 设置 Python 环境（使用 Python 进行数据处理）
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # 3. 安装依赖库（用于网页解析和数据处理）
+      - name: Install Dependencies
+        run: pip install requests beautifulsoup4
+
+      # 4. 执行 IP 抓取、排名并保存结果
+      # 将核心逻辑放在一个独立的 Python 脚本中执行
+      - name: Run IP Fetching and Ranking Script
         run: |
-          IP_URL="https://www.wetest.vip/page/cloudflare/address_v4.html"
-          
-          echo "开始从 ${IP_URL} 抓取数据并保存到临时文件..."
-          # 1. 使用 curl 抓取网页内容并保存到临时文件
-          curl -s $IP_URL > raw_html.txt
-          
-          # 2. 【核心诊断步骤】打印包含 IP 地址的关键 HTML 片段到日志
-          echo "----------------------------------------"
-          echo "工作流抓取到的原始 HTML 片段 (用于对比):"
-          # 打印所有包含 '优选地址' 标签的行
-          grep '<td data-label="优选地址">' raw_html.txt
-          echo "----------------------------------------"
-          
-          # 3. 从临时文件中提取 IP 并保存到 IP.txt
-          grep -oP '<td data-label="优选地址">\K[0-9.]+' raw_html.txt > IP.txt
+          # 将 Python 脚本内嵌到工作流中
+          cat << EOF > rank_script.py
+import requests
+from bs4 import BeautifulSoup
+import re
 
-          # 4. 检查 IP.txt 是否有数据
-          if [ -s IP.txt ]; then
-            echo "成功提取 $(wc -l < IP.txt) 个 IP 地址到 IP.txt。"
-          else
-            echo "警告：IP.txt 文件为空，请检查 URL 或提取正则是否正确！"
-            exit 1 
-          fi
+# 定义两个目标 URL
+URLS = {
+    "EdgeOne": "https://www.wetest.vip/page/edgeone/address_v4.html",
+    "CloudFlare": "https://www.wetest.vip/page/cloudflare/address_v4.html"
+}
 
+def fetch_and_parse(url, source_name):
+    print(f"--- 正在从 {source_name} 抓取数据: {url} ---")
+    headers = {'User-Agent': 'Mozilla/5.0 (GitHub Actions)'}
+    
+    # 尝试抓取数据，并设置超时
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status() # 检查HTTP错误
+    except requests.exceptions.RequestException as e:
+        print(f"错误: 无法访问 {source_name}: {e}")
+        return []
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    data_list = []
+    
+    # 定位到数据表格，这里假设只有一个表格，或者第一个是目标表格
+    table = soup.find('table')
+    if not table:
+        print(f"警告: 在 {source_name} 页面未找到数据表格。")
+        return []
+
+    # 遍历所有行
+    for row in table.find_all('tr'):
+        columns = row.find_all('td')
+        
+        # 确保行有足够的列
+        if len(columns) < 5: 
+            continue 
+
+        # 核心数据提取：通过 data-label 匹配字段
+        try:
+            line_name = columns[0].text.strip()
+            ip_address = columns[1].text.strip()
+            # 峰值速度通常是第4列 (索引为3)
+            speed_text = columns[3].text.strip() 
+
+            # 提取速度值（转换为整数用于排序）
+            match = re.search(r'(\d+)\s?kB/s', speed_text)
+            if match:
+                speed_value = int(match.group(1)) # 提取数字部分
+            else:
+                continue # 跳过无法解析速度的行
+            
+            data_list.append({
+                '峰值速度_数值': speed_value,
+                '优选地址': ip_address,
+                '线路名称': line_name,
+                '来源': source_name
+            })
+        except IndexError:
+             # 处理列数不足或格式不符合预期的情况
+            continue
+            
+    return data_list
+
+# --- 主逻辑 ---
+all_data = []
+for source, url in URLS.items():
+    all_data.extend(fetch_and_parse(url, source))
+
+if not all_data:
+    print("没有成功提取到任何 IP 数据。")
+    # 允许工作流失败，如果需要的话可以改成 exit(1)
+    exit(0) 
+
+# 5. 排序：按速度降序排列
+sorted_data = sorted(
+    all_data, 
+    key=lambda x: x['峰值速度_数值'], 
+    reverse=True
+)
+
+# 6. 保存排名第一的 IP 地址到文件 (供携程使用)
+# 文件名可以自定义，例如 top_ip.txt
+output_filename = "top_ip.txt" 
+with open(output_filename, "w", encoding="utf-8") as f:
+    if sorted_data:
+        best_ip = sorted_data[0]['优选地址']
+        # 只写入排名第一的IP地址，以便您的携程脚本直接读取
+        f.write(best_ip + "\n")
+        
+        print(f"\n--- 最佳 IP 地址已保存到 {output_filename} ---")
+        print(f"排名第一的 IP: {best_ip}")
+        print(f"速度: {sorted_data[0]['峰值速度_数值']} kB/s")
+        print(f"来源: {sorted_data[0]['来源']}")
+    else:
+        print("警告：排序后列表为空，未生成 top_ip.txt 文件。")
+
+# 7. (可选) 保存完整的排名列表用于调试
+# output_full_filename = "ip_full_rank.txt"
+# with open(output_full_filename, "w", encoding="utf-8") as f:
+#     for i, item in enumerate(sorted_data):
+#         f.write(f"{i+1}. [{item['来源']}] {item['峰值速度_数值']} kB/s -> {item['优选地址']} ({item['线路名称']})\n")
+# print(f"完整排名已保存到 {output_full_filename}")
+EOF
+
+          # 执行 Python 脚本
+          python rank_script.py
+      
+      # 5. 提交和推送更改（仅在 top_ip.txt 有变化时）
       - name: Commit and push changes
         run: |
+          # 配置 git 用户信息
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           
-          if git diff --quiet IP.txt; then
-            echo "IP.txt 内容无变化，跳过提交。"
+          # 检查 top_ip.txt 文件内容是否有变化
+          if git diff --quiet top_ip.txt; then
+            echo "top_ip.txt 内容无变化，跳过提交。"
           else
-            echo "检测到 IP.txt 内容有更新，正在提交并推送..."
-            git add IP.txt
-            git commit -m "chore(auto): Update Cloudflare IP list via GitHub Actions"
+            echo "检测到 top_ip.txt 内容有更新，正在提交并推送..."
+            git add top_ip.txt
+            git commit -m "chore(auto): Update best ranked IP (${IP_ADDRESS})"
             git push
             echo "提交推送完成。"
           fi
