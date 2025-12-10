@@ -1,0 +1,46 @@
+name: Update IP List
+
+on:
+  schedule:
+    # 每 15 分钟运行一次
+    - cron: '*/1 * * * *'
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  update-ip:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 需要写入权限来提交代码
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run Scraper Script
+        run: python scrape.py
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 检查 IP.txt 是否有变化
+          git add IP.txt
+          
+          # 如果有变更则提交，否则跳过
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update IP list [skip ci]"
+            git push
+          fi
