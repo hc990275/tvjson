@@ -32,9 +32,10 @@ jobs:
         run: pip install requests beautifulsoup4
 
       # 4. 执行 IP 抓取、排名并保存结果
+      # **注意：第 39 行在 Shell 块内，已确保 Python 代码没有前导空格，从而避免 YAML 错误。**
       - name: Run IP Fetching and Ranking Script
         run: |
-          # 将 Python 脚本内嵌到工作流中，注意：脚本内容紧贴左边缘，避免 YAML 语法错误
+          # 将 Python 脚本内嵌到工作流中
           cat << EOF > rank_script.py
 import requests
 from bs4 import BeautifulSoup
