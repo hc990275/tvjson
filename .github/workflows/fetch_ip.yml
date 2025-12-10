@@ -1,155 +1,109 @@
-name: 🚀 Fetch & Rank Best IPs (1 Min Cycle)
+name: Auto Fetch Best IP
 
-# 1. 触发事件：保持每分钟运行
 on:
   schedule:
-    # '*/1 * * * *' 表示每小时的每分钟都运行一次
-    # 注意：GitHub Actions 的最低执行间隔通常为 5 分钟。
-    - cron: '*/1 * * * *' 
-  # 允许手动触发
+    # GitHub Actions 免费版最小间隔约为 5 分钟
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
-jobs:
-  fetch_and_rank:
-    # 运行环境
-    runs-on: ubuntu-latest
-    # 赋予写入权限，以便提交更改到仓库
-    permissions:
-      contents: write 
+permissions:
+  contents: write
 
+jobs:
+  update-ip:
+    runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. 设置 Python 环境
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.10'
 
-      # 3. 安装依赖库（requests 和 beautifulsoup4 用于网页解析）
       - name: Install Dependencies
         run: pip install requests beautifulsoup4
 
-      # 4. 执行 IP 抓取、排名并保存结果
-      # **注意：第 39 行在 Shell 块内，已确保 Python 代码没有前导空格，从而避免 YAML 错误。**
-      - name: Run IP Fetching and Ranking Script
+      - name: Run Extraction Script
         run: |
-          # 将 Python 脚本内嵌到工作流中
-          cat << EOF > rank_script.py
-import requests
-from bs4 import BeautifulSoup
-import re
+          cat << 'EOF' > extract.py
+          import requests
+          from bs4 import BeautifulSoup
+          import re
+          import sys
 
-# 定义两个目标 URL
-URLS = {
-    "EdgeOne": "https://www.wetest.vip/page/edgeone/address_v4.html",
-    "CloudFlare": "https://www.wetest.vip/page/cloudflare/address_v4.html"
-}
+          def get_ips():
+              urls = [
+                  ("EdgeOne", "https://www.wetest.vip/page/edgeone/address_v4.html"),
+                  ("CloudFlare", "https://www.wetest.vip/page/cloudflare/address_v4.html")
+              ]
+              
+              all_data = []
+              headers = {'User-Agent': 'Mozilla/5.0'}
 
-def fetch_and_parse(url, source_name):
-    print(f"--- 正在从 {source_name} 抓取数据: {url} ---")
-    headers = {'User-Agent': 'Mozilla/5.0 (GitHub Actions)'}
-    
-    # 尝试抓取数据，并设置超时
-    try:
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status() # 检查HTTP错误
-    except requests.exceptions.RequestException as e:
-        print(f"错误: 无法访问 {source_name}: {e}")
-        return []
+              for name, url in urls:
+                  try:
+                      print(f"Fetching {name}...")
+                      resp = requests.get(url, headers=headers, timeout=20)
+                      if resp.status_code != 200:
+                          continue
+                          
+                      soup = BeautifulSoup(resp.text, 'html.parser')
+                      # 查找包含"峰值速度"的表格行
+                      for tr in soup.find_all('tr'):
+                          tds = tr.find_all('td')
+                          if len(tds) < 4: continue
+                          
+                          # 提取 IP (通常在第2列) 和 速度 (通常在第4列)
+                          # 根据网页结构调整索引: 0:线路, 1:IP, 2:带宽, 3:速度
+                          try:
+                              ip = tds[1].get_text(strip=True)
+                              speed_str = tds[3].get_text(strip=True)
+                              
+                              # 正则提取数字速度 (kB/s)
+                              speed_match = re.search(r'(\d+)', speed_str)
+                              if speed_match and re.match(r'^\d{1,3}(\.\d{1,3}){3}$', ip):
+                                  speed = int(speed_match.group(1))
+                                  all_data.append({'ip': ip, 'speed': speed, 'source': name})
+                          except:
+                              continue
+                  except Exception as e:
+                      print(f"Error fetching {name}: {e}")
 
-    soup = BeautifulSoup(response.text, 'html.parser')
-    data_list = []
-    
-    # 定位到数据表格
-    table = soup.find('table')
-    if not table:
-        print(f"警告: 在 {source_name} 页面未找到数据表格。")
-        return []
+              # 排序：速度从大到小
+              all_data.sort(key=lambda x: x['speed'], reverse=True)
+              return all_data
 
-    # 遍历所有行
-    for row in table.find_all('tr'):
-        columns = row.find_all('td')
-        
-        # 确保行有足够的列
-        if len(columns) < 5: 
-            continue 
-
-        # 核心数据提取
-        try:
-            line_name = columns[0].text.strip()
-            ip_address = columns[1].text.strip()
-            speed_text = columns[3].text.strip() 
-
-            # 提取速度值（转换为整数用于排序）
-            match = re.search(r'(\d+)\s?kB/s', speed_text)
-            if match:
-                speed_value = int(match.group(1)) # 提取数字部分
-            else:
-                continue
-            
-            data_list.append({
-                '峰值速度_数值': speed_value,
-                '优选地址': ip_address,
-                '线路名称': line_name,
-                '来源': source_name
-            })
-        except IndexError:
-            continue
-            
-    return data_list
-
-# --- 主逻辑 ---
-all_data = []
-for source, url in URLS.items():
-    all_data.extend(fetch_and_parse(url, source))
-
-if not all_data:
-    print("没有成功提取到任何 IP 数据。")
-    exit(0) 
-
-# 5. 排序：按速度降序排列
-sorted_data = sorted(
-    all_data, 
-    key=lambda x: x['峰值速度_数值'], 
-    reverse=True
-)
-
-# 6. 保存排名第一的 IP 地址到文件 (供携程使用)
-output_filename = "top_ip.txt" 
-with open(output_filename, "w", encoding="utf-8") as f:
-    if sorted_data:
-        best_ip = sorted_data[0]['优选地址']
-        f.write(best_ip + "\n")
-        
-        print(f"\n--- 最佳 IP 地址已保存到 {output_filename} ---")
-        print(f"排名第一的 IP: {best_ip}")
-        print(f"速度: {sorted_data[0]['峰值速度_数值']} kB/s")
-        print(f"来源: {sorted_data[0]['来源']}")
-    else:
-        print("警告：排序后列表为空，未生成 top_ip.txt 文件。")
-
-EOF
-
-          # 执行 Python 脚本
-          python rank_script.py
-      
-      # 5. 提交和推送更改（仅在 top_ip.txt 有变化时）
-      - name: Commit and push changes
-        run: |
-          # 配置 git 用户信息
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          if __name__ == "__main__":
+              data = get_ips()
+              if data:
+                  best_ip = data[0]['ip']
+                  print(f"Best IP found: {best_ip} with speed {data[0]['speed']} kB/s")
+                  
+                  # 写入文件
+                  with open('top_ip.txt', 'w') as f:
+                      f.write(best_ip)
+              else:
+                  print("No data found")
+                  sys.exit(0)
+          EOF
           
-          # 检查 top_ip.txt 文件内容是否有变化
-          if git diff --quiet top_ip.txt; then
-            echo "top_ip.txt 内容无变化，跳过提交。"
-          else
-            echo "检测到 top_ip.txt 内容有更新，正在提交并推送..."
+          python extract.py
+
+      - name: Commit and Push
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if [ -f "top_ip.txt" ]; then
             git add top_ip.txt
-            # 简化提交信息，确保工作流成功
-            git commit -m "chore(auto): Update best ranked IP" 
-            git push
-            echo "提交推送完成。"
+            if git diff --staged --quiet; then
+              echo "No changes to commit"
+            else
+              git commit -m "Auto-update Best IP"
+              git push
+            fi
+          else
+            echo "top_ip.txt does not exist, skipping commit"
           fi
