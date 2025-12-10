@@ -26,7 +26,7 @@ jobs:
       - name: Install Dependencies
         run: pip install requests beautifulsoup4
 
-      - name: Run Script to Fetch IP and Time
+      - name: Run Script to Fetch IP and Log Time
         run: |
           # 使用 'EOF' 避免 Shell 变量干扰 Python 脚本
           cat << 'EOF' > run_script.py
@@ -55,27 +55,20 @@ jobs:
                           continue
                           
                       soup = BeautifulSoup(resp.text, 'html.parser')
-                      # 查找表格行
                       rows = soup.find_all('tr')
                       print(f"在 {name} 找到 {len(rows)} 行数据")
 
                       for tr in rows:
                           tds = tr.find_all('td')
-                          # 简单校验列数，防止报错
                           if len(tds) < 4: continue
                           
-                          # 尝试提取数据：假设第2列是IP，第4列是速度
-                          # 根据网页实际结构：
-                          # <td data-label="优选地址">IP</td> ... <td data-label="峰值速度">5836 kB/s</td>
                           try:
                               ip = tds[1].get_text(strip=True)
                               speed_str = tds[3].get_text(strip=True)
                               
-                              # 提取数字速度
                               speed_match = re.search(r'(\d+)', speed_str)
                               if speed_match:
                                   speed = int(speed_match.group(1))
-                                  # 简单的 IP 格式校验
                                   if ip.count('.') == 3:
                                       all_data.append({'ip': ip, 'speed': speed, 'source': name})
                           except Exception as e:
@@ -83,36 +76,43 @@ jobs:
                   except Exception as e:
                       print(f"抓取 {name} 出错: {e}")
 
-              # 按速度降序排序 (最快在前)
+              # 按速度降序排序
               all_data.sort(key=lambda x: x['speed'], reverse=True)
               return all_data
 
           if __name__ == "__main__":
-              # 1. 处理 IP 数据
+              # 1. 准备时间 (北京时间 UTC+8)
+              utc_now = datetime.now(timezone.utc)
+              bj_time = utc_now + timedelta(hours=8)
+              time_str = bj_time.strftime('%Y-%m-%d %H:%M:%S')
+
+              # 2. 处理 IP 数据
               data = get_best_ip()
+              log_msg = ""
               
               if data:
                   best_item = data[0]
                   best_ip = best_item['ip']
-                  print(f"找到最快 IP: {best_ip} (速度: {best_item['speed']} kB/s, 来源: {best_item['source']})")
+                  speed = best_item['speed']
+                  source = best_item['source']
                   
-                  # 写入 top_ip.txt
+                  print(f"找到最快 IP: {best_ip} (速度: {speed} kB/s, 来源: {source})")
+                  
+                  # 写入 top_ip.txt (覆盖模式，只保留最新IP)
                   with open('top_ip.txt', 'w', encoding='utf-8') as f:
                       f.write(best_ip)
+                  
+                  # 构造成功日志信息
+                  log_msg = f"[{time_str}] 成功更新 - IP: {best_ip} | 速度: {speed} kB/s | 来源: {source}\n"
               else:
                   print("未找到有效 IP 数据")
+                  # 构造失败日志信息
+                  log_msg = f"[{time_str}] 更新失败 - 未找到有效数据\n"
 
-              # 2. 处理时间 (北京时间 UTC+8)
-              utc_now = datetime.now(timezone.utc)
-              bj_time = utc_now + timedelta(hours=8)
-              # 格式化时间字符串: 2025-12-09 12:00:00
-              time_str = bj_time.strftime('%Y-%m-%d %H:%M:%S')
-              
-              print(f"写入北京时间: {time_str}")
-              
-              # 写入 time.txt
-              with open('time.txt', 'w', encoding='utf-8') as f:
-                  f.write(time_str)
+              # 3. 写入日志 (追加模式 'a')
+              print(f"写入日志内容: {log_msg.strip()}")
+              with open('update_log.txt', 'a', encoding='utf-8') as f:
+                  f.write(log_msg)
 
           EOF
 
@@ -124,16 +124,15 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # 添加生成的文件
-          git add top_ip.txt time.txt
+          # 添加生成的文件 (注意这里改为了 update_log.txt)
+          git add top_ip.txt update_log.txt
           
           # 检查是否有变更
           if git diff --staged --quiet; then
             echo "没有需要提交的变更"
           else
-            # 获取当前时间用于提交信息
             CURRENT_TIME=$(date "+%Y-%m-%d %H:%M:%S")
-            git commit -m "Auto update IP and Time: $CURRENT_TIME"
+            git commit -m "Auto update IP and Log: $CURRENT_TIME"
             git push
             echo "更新已推送"
           fi
