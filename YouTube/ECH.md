@@ -27,5 +27,3 @@
 | **360 安全 DNS** | `https://doh.360.cn/dns-query` | |
 
 ---
-
-您是否希望我查找关于 ECH（Encrypted Client Hello）或上述项目中提到的**优选 IP** 相关的更多信息？
