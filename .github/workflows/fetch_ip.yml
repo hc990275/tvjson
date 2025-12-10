@@ -6,6 +6,20 @@ on:
     - cron: '*/5 * * * *'
   workflow_dispatch:
 
+# --- 核心配置区域 (修改这里的文件名即可) ---
+env:
+  # 1. 本次抓取的所有IP (按速度排序)
+  FILE_CURRENT_IP: "IP.txt"
+  
+  # 2. 历史最快前30名 - 详细版 (包含IP、线路、速度等)
+  FILE_HISTORY_DETAIL: "history_best.txt"
+  
+  # 3. 历史最快前30名 - 纯IP版
+  FILE_HISTORY_IP: "history_best_ip.txt"
+  
+  # 4. 运行日志文件
+  FILE_LOG: "log.txt"
+
 # 必须赋予写权限才能提交代码
 permissions:
   contents: write
@@ -26,24 +40,54 @@ jobs:
       - name: Install Dependencies
         run: pip install requests beautifulsoup4
 
-      - name: Run Script to Fetch and Sort IPs
+      - name: Run Script to Fetch, Sort and Manage History
+        # 将环境变量传递给 Python 脚本
+        env:
+          FILE_CURRENT_IP: ${{ env.FILE_CURRENT_IP }}
+          FILE_HISTORY_DETAIL: ${{ env.FILE_HISTORY_DETAIL }}
+          FILE_HISTORY_IP: ${{ env.FILE_HISTORY_IP }}
+          FILE_LOG: ${{ env.FILE_LOG }}
         run: |
-          # 使用 'EOF' 避免 Shell 变量干扰 Python 脚本
           cat << 'EOF' > run_script.py
           import requests
           from bs4 import BeautifulSoup
           import re
-          import sys
+          import os
           from datetime import datetime, timedelta, timezone
 
-          def get_sorted_ips():
+          # --- 从环境变量获取文件名 ---
+          CURRENT_IP_FILE = os.getenv('FILE_CURRENT_IP', 'IP.txt')
+          HISTORY_FILE = os.getenv('FILE_HISTORY_DETAIL', 'history_best.txt')
+          HISTORY_IP_FILE = os.getenv('FILE_HISTORY_IP', 'history_best_ip.txt')
+          LOG_FILE = os.getenv('FILE_LOG', 'update_log.txt')
+          
+          MAX_HISTORY_COUNT = 30
+          
+          class IpNode:
+              def __init__(self, ip, isp, speed_str, bandwidth, latency, datacenter, raw_line=None):
+                  self.ip = ip
+                  self.isp = isp
+                  self.speed_str = speed_str
+                  self.bandwidth = bandwidth
+                  self.latency = latency
+                  self.datacenter = datacenter
+                  self.speed_int = self.extract_speed(speed_str)
+                  # 如果是从文件读取的原始行，保留它；否则生成新行 (格式：IP 线路 速度 宽带 延迟 数据中心)
+                  self.raw_line = raw_line if raw_line else f"{ip} {isp} {speed_str} {bandwidth} {latency} {datacenter}"
+
+              def extract_speed(self, s):
+                  # 提取字符串中的数字，例如 "5836 kB/s" -> 5836
+                  match = re.search(r'(\d+)', s)
+                  return int(match.group(1)) if match else 0
+
+          def fetch_current_data():
               urls = [
                   ("EdgeOne", "https://www.wetest.vip/page/edgeone/address_v4.html"),
                   ("CloudFlare", "https://www.wetest.vip/page/cloudflare/address_v4.html")
               ]
               
-              all_data = []
               headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+              fetched_nodes = []
 
               print("开始抓取数据...")
               for name, url in urls:
@@ -51,77 +95,128 @@ jobs:
                       print(f"正在访问: {name}...")
                       resp = requests.get(url, headers=headers, timeout=15)
                       if resp.status_code != 200:
-                          print(f"无法访问 {name}, 状态码: {resp.status_code}")
                           continue
                           
                       soup = BeautifulSoup(resp.text, 'html.parser')
                       rows = soup.find_all('tr')
-                      print(f"在 {name} 找到 {len(rows)} 行数据")
 
                       for tr in rows:
                           tds = tr.find_all('td')
-                          if len(tds) < 4: continue
+                          # 校验列数，防止解析错误
+                          if len(tds) < 6: continue
                           
                           try:
-                              # 第2列是IP，第4列是速度
+                              isp = tds[0].get_text(strip=True)
                               ip = tds[1].get_text(strip=True)
+                              bandwidth = tds[2].get_text(strip=True)
                               speed_str = tds[3].get_text(strip=True)
+                              latency = tds[4].get_text(strip=True)
+                              datacenter = tds[5].get_text(strip=True)
                               
-                              # 提取数字速度
-                              speed_match = re.search(r'(\d+)', speed_str)
-                              if speed_match:
-                                  speed = int(speed_match.group(1))
-                                  # 简单的 IP 格式校验
-                                  if ip.count('.') == 3:
-                                      all_data.append({'ip': ip, 'speed': speed, 'source': name})
-                          except Exception as e:
+                              # 简单的 IPv4 校验
+                              if ip.count('.') == 3:
+                                  node = IpNode(ip, isp, speed_str, bandwidth, latency, datacenter)
+                                  if node.speed_int > 0:
+                                      fetched_nodes.append(node)
+                          except Exception:
                               continue
                   except Exception as e:
                       print(f"抓取 {name} 出错: {e}")
+              
+              return fetched_nodes
 
-              # --- 核心逻辑：按速度降序排序 (最快在前) ---
-              all_data.sort(key=lambda x: x['speed'], reverse=True)
-              return all_data
+          def load_history():
+              history_nodes = []
+              if not os.path.exists(HISTORY_FILE):
+                  return history_nodes
+              
+              try:
+                  with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+                      lines = f.readlines()
+                      for line in lines:
+                          line = line.strip()
+                          if not line: continue
+                          
+                          parts = line.split()
+                          if len(parts) < 2: continue
+                          
+                          current_ip = parts[0]
+                          # 从历史记录行中再次提取速度数值，用于排序
+                          match = re.search(r'(\d+)\s*kB/s', line, re.IGNORECASE)
+                          speed_val = int(match.group(1)) if match else 0
+                          
+                          # 构造对象，主要为了复用 raw_line 和 speed_int
+                          node = IpNode(current_ip, "", "", "", "", "", raw_line=line)
+                          node.speed_int = speed_val
+                          history_nodes.append(node)
+              except Exception as e:
+                  print(f"读取历史文件出错: {e}")
+              
+              return history_nodes
 
           if __name__ == "__main__":
-              # 1. 准备时间 (北京时间 UTC+8)
+              # 1. 准备时间
               utc_now = datetime.now(timezone.utc)
               bj_time = utc_now + timedelta(hours=8)
               time_str = bj_time.strftime('%Y-%m-%d %H:%M:%S')
 
-              # 2. 获取并排序 IP 数据
-              data = get_sorted_ips()
-              log_msg = ""
+              # 2. 获取当前数据并排序
+              current_nodes = fetch_current_data()
+              current_nodes.sort(key=lambda x: x.speed_int, reverse=True)
+
+              # 3. 写入本次抓取结果 (FILE_CURRENT_IP)
+              with open(CURRENT_IP_FILE, 'w', encoding='utf-8') as f:
+                  for node in current_nodes:
+                      f.write(f"{node.ip}\n")
+              print(f"已写入 {len(current_nodes)} 个IP到 {CURRENT_IP_FILE}")
+
+              # 4. 历史排名逻辑 (合并 -> 去重 -> 排序 -> 取前30)
+              history_nodes = load_history()
               
-              if data:
-                  ip_count = len(data)
-                  best_item = data[0]
-                  print(f"共获取到 {ip_count} 个有效 IP，最快速度: {best_item['speed']} kB/s")
-                  
-                  # --- 写入 IP.txt (全量排序写入) ---
-                  # 覆盖模式 'w'，每次写入最新的完整列表
-                  with open('IP.txt', 'w', encoding='utf-8') as f:
-                      for item in data:
-                          # 写入格式：仅 IP，每行一个
-                          f.write(f"{item['ip']}\n")
-                  
-                  # 同时保留 top_ip.txt (仅写入最快的一个，可选)
-                  with open('top_ip.txt', 'w', encoding='utf-8') as f:
-                      f.write(best_item['ip'])
+              ip_map = {}
+              
+              # 先加载历史数据
+              for node in history_nodes:
+                  if node.ip not in ip_map or node.speed_int > ip_map[node.ip].speed_int:
+                      ip_map[node.ip] = node
+                      
+              # 再融合新抓取数据 (如果新抓取的同IP速度更快，则更新)
+              for node in current_nodes:
+                  if node.ip not in ip_map or node.speed_int > ip_map[node.ip].speed_int:
+                      ip_map[node.ip] = node
+              
+              # 转列表，按速度降序
+              merged_list = list(ip_map.values())
+              merged_list.sort(key=lambda x: x.speed_int, reverse=True)
+              
+              # 截取前30名
+              top_30 = merged_list[:MAX_HISTORY_COUNT]
+              
+              # 5. 写入历史详细文件 (FILE_HISTORY_DETAIL)
+              with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+                  for node in top_30:
+                      f.write(f"{node.raw_line}\n")
+              
+              # 6. 写入历史纯IP文件 (FILE_HISTORY_IP)
+              with open(HISTORY_IP_FILE, 'w', encoding='utf-8') as f:
+                  for node in top_30:
+                      f.write(f"{node.ip}\n")
 
-                  # 构造日志信息
-                  log_msg = f"[{time_str}] 成功更新 {ip_count} 个IP - 最快: {best_item['ip']} ({best_item['speed']} kB/s)\n"
+              # 7. 写入日志 (FILE_LOG)
+              log_msg = ""
+              if current_nodes:
+                  fastest = current_nodes[0]
+                  log_msg = f"[{time_str}] 更新成功 | 本次抓取: {len(current_nodes)} | 本次最快: {fastest.ip} ({fastest.speed_str}) | 历史库更新: 前{len(top_30)}名\n"
               else:
-                  print("未找到有效 IP 数据")
-                  log_msg = f"[{time_str}] 更新失败 - 未找到有效数据\n"
-
-              # 3. 写入日志 (追加模式 'a')
-              with open('update_log.txt', 'a', encoding='utf-8') as f:
+                  log_msg = f"[{time_str}] 更新失败或无新数据\n"
+                  
+              with open(LOG_FILE, 'a', encoding='utf-8') as f:
                   f.write(log_msg)
+                  
+              print("所有文件处理完成。")
 
           EOF
 
-          # 执行 Python 脚本
           python run_script.py
 
       - name: Commit and Push Changes
@@ -129,15 +224,14 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # 添加生成的文件 (注意加入了 IP.txt)
-          git add IP.txt top_ip.txt update_log.txt
+          # 直接使用环境变量中的文件名进行提交
+          git add "$FILE_CURRENT_IP" "$FILE_HISTORY_DETAIL" "$FILE_HISTORY_IP" "$FILE_LOG"
           
-          # 检查是否有变更
           if git diff --staged --quiet; then
-            echo "没有需要提交的变更"
+            echo "没有变更需要提交"
           else
             CURRENT_TIME=$(date "+%Y-%m-%d %H:%M:%S")
-            git commit -m "Auto update sorted IPs: $CURRENT_TIME"
+            git commit -m "Auto Update IPs and History: $CURRENT_TIME"
             git push
-            echo "更新已推送"
+            echo "推送成功"
           fi
