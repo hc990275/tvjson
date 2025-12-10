@@ -3,7 +3,7 @@ name: Fetch and Update Cloudflare IP List
 # 保持为15分钟，因为1分钟过于频繁，且我们已经排除了时间间隔大的问题
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/1 * * * *'
   workflow_dispatch:
 
 jobs:
