@@ -21,7 +21,7 @@
 | **阿里云** | `https://dns.alidns.com/dns-query` | 默认 |
 | **腾讯 DNSPod** | `doh.pub/dns-query` | |
 | **360 安全 DNS** | `doh.360.cn/dns-query` | |
-| **ECH官方** | `cloudflare-ech.com` | |
+| **ECH官方域名** | `cloudflare-ech.com` | |
 
 
 ---
