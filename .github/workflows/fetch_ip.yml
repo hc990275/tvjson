@@ -3,24 +3,30 @@ name: Update IP and Time (BJ)
 on:
   schedule:
     # GitHub 免费版限制最小间隔约 5 分钟
-    - cron: '*/15 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
-# --- 核心配置区域 (修改这里的文件名即可) ---
+# =========================================================
+# 核心配置区域 (在此处修改文件名，均使用中文)
+# =========================================================
 env:
-  # 1. 本次抓取的所有IP (按速度排序)
-  FILE_CURRENT_IP: "IP.txt"
+  # 1. 15分钟内(本次)抓取结果 - 纯IP
+  FILE_15M_IP: "15分钟内_纯IP.txt"
   
-  # 2. 历史最快前30名 - 详细版 (包含IP、线路、速度等)
-  FILE_HISTORY_DETAIL: "history_best.txt"
+  # 2. 15分钟内(本次)抓取结果 - 完整信息 (新增)
+  FILE_15M_INFO: "15分钟内_完整信息.txt"
   
-  # 3. 历史最快前30名 - 纯IP版
-  FILE_HISTORY_IP: "history_best_ip.txt"
+  # 3. 历史最快Top30 - 纯IP
+  FILE_HIST_IP: "历史最快_纯IP.txt"
   
-  # 4. 运行日志文件
-  FILE_LOG: "log.txt"
+  # 4. 历史最快Top30 - 完整信息
+  FILE_HIST_INFO: "历史最快_完整信息.txt"
+  
+  # 5. 运行日志 (倒序，保留30行)
+  FILE_LOG: "运行日志.txt"
 
-# 必须赋予写权限才能提交代码
+# =========================================================
+
 permissions:
   contents: write
 
@@ -40,12 +46,13 @@ jobs:
       - name: Install Dependencies
         run: pip install requests beautifulsoup4
 
-      - name: Run Script to Fetch, Sort and Manage History
-        # 将环境变量传递给 Python 脚本
+      - name: Run Script
+        # 将环境变量传递给 Python
         env:
-          FILE_CURRENT_IP: ${{ env.FILE_CURRENT_IP }}
-          FILE_HISTORY_DETAIL: ${{ env.FILE_HISTORY_DETAIL }}
-          FILE_HISTORY_IP: ${{ env.FILE_HISTORY_IP }}
+          FILE_15M_IP: ${{ env.FILE_15M_IP }}
+          FILE_15M_INFO: ${{ env.FILE_15M_INFO }}
+          FILE_HIST_IP: ${{ env.FILE_HIST_IP }}
+          FILE_HIST_INFO: ${{ env.FILE_HIST_INFO }}
           FILE_LOG: ${{ env.FILE_LOG }}
         run: |
           cat << 'EOF' > run_script.py
@@ -55,28 +62,32 @@ jobs:
           import os
           from datetime import datetime, timedelta, timezone
 
-          # --- 从环境变量获取文件名 ---
-          CURRENT_IP_FILE = os.getenv('FILE_CURRENT_IP', 'IP.txt')
-          HISTORY_FILE = os.getenv('FILE_HISTORY_DETAIL', 'history_best.txt')
-          HISTORY_IP_FILE = os.getenv('FILE_HISTORY_IP', 'history_best_ip.txt')
-          LOG_FILE = os.getenv('FILE_LOG', 'update_log.txt')
+          # --- 获取环境变量中的文件名 ---
+          F_15M_IP = os.getenv('FILE_15M_IP', '15_min_ip.txt')
+          F_15M_INFO = os.getenv('FILE_15M_INFO', '15_min_info.txt')
+          F_HIST_IP = os.getenv('FILE_HIST_IP', 'hist_ip.txt')
+          F_HIST_INFO = os.getenv('FILE_HIST_INFO', 'hist_info.txt')
+          F_LOG = os.getenv('FILE_LOG', 'log.txt')
           
           MAX_HISTORY_COUNT = 30
-          
+          MAX_LOG_LINES = 30
+
           class IpNode:
               def __init__(self, ip, isp, speed_str, bandwidth, latency, datacenter, raw_line=None):
                   self.ip = ip
-                  self.isp = isp
-                  self.speed_str = speed_str
-                  self.bandwidth = bandwidth
-                  self.latency = latency
-                  self.datacenter = datacenter
-                  self.speed_int = self.extract_speed(speed_str)
-                  # 如果是从文件读取的原始行，保留它；否则生成新行 (格式：IP 线路 速度 宽带 延迟 数据中心)
-                  self.raw_line = raw_line if raw_line else f"{ip} {isp} {speed_str} {bandwidth} {latency} {datacenter}"
+                  # 提取速度数值用于排序
+                  self.speed_int = self.extract_speed(speed_str) if speed_str else 0
+                  
+                  # 如果有原始行则使用，否则重新生成格式化字符串
+                  if raw_line:
+                      self.raw_line = raw_line
+                      # 如果是从历史文件读取，尝试再次从 raw_line 提取速度
+                      if self.speed_int == 0:
+                          self.speed_int = self.extract_speed(raw_line)
+                  else:
+                      self.raw_line = f"{ip} {isp} {speed_str} {bandwidth} {latency} {datacenter}"
 
               def extract_speed(self, s):
-                  # 提取字符串中的数字，例如 "5836 kB/s" -> 5836
                   match = re.search(r'(\d+)', s)
                   return int(match.group(1)) if match else 0
 
@@ -85,135 +96,139 @@ jobs:
                   ("EdgeOne", "https://www.wetest.vip/page/edgeone/address_v4.html"),
                   ("CloudFlare", "https://www.wetest.vip/page/cloudflare/address_v4.html")
               ]
-              
               headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-              fetched_nodes = []
+              nodes = []
 
               print("开始抓取数据...")
               for name, url in urls:
                   try:
-                      print(f"正在访问: {name}...")
                       resp = requests.get(url, headers=headers, timeout=15)
-                      if resp.status_code != 200:
-                          continue
-                          
+                      if resp.status_code != 200: continue
                       soup = BeautifulSoup(resp.text, 'html.parser')
-                      rows = soup.find_all('tr')
-
-                      for tr in rows:
+                      
+                      for tr in soup.find_all('tr'):
                           tds = tr.find_all('td')
-                          # 校验列数，防止解析错误
-                          if len(tds) < 6: continue
+                          if len(tds) < 6: continue # 确保列数足够
                           
                           try:
+                              # 提取网页表格数据
                               isp = tds[0].get_text(strip=True)
                               ip = tds[1].get_text(strip=True)
-                              bandwidth = tds[2].get_text(strip=True)
-                              speed_str = tds[3].get_text(strip=True)
-                              latency = tds[4].get_text(strip=True)
-                              datacenter = tds[5].get_text(strip=True)
+                              bw = tds[2].get_text(strip=True)
+                              spd = tds[3].get_text(strip=True)
+                              lat = tds[4].get_text(strip=True)
+                              dc = tds[5].get_text(strip=True)
                               
-                              # 简单的 IPv4 校验
                               if ip.count('.') == 3:
-                                  node = IpNode(ip, isp, speed_str, bandwidth, latency, datacenter)
+                                  node = IpNode(ip, isp, spd, bw, lat, dc)
                                   if node.speed_int > 0:
-                                      fetched_nodes.append(node)
-                          except Exception:
+                                      nodes.append(node)
+                          except:
                               continue
                   except Exception as e:
-                      print(f"抓取 {name} 出错: {e}")
-              
-              return fetched_nodes
+                      print(f"抓取错误 {name}: {e}")
+              return nodes
 
-          def load_history():
-              history_nodes = []
-              if not os.path.exists(HISTORY_FILE):
-                  return history_nodes
-              
+          def load_history_nodes():
+              nodes = []
+              if not os.path.exists(F_HIST_INFO):
+                  return nodes
               try:
-                  with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
-                      lines = f.readlines()
-                      for line in lines:
+                  with open(F_HIST_INFO, 'r', encoding='utf-8') as f:
+                      for line in f:
                           line = line.strip()
                           if not line: continue
-                          
                           parts = line.split()
-                          if len(parts) < 2: continue
-                          
-                          current_ip = parts[0]
-                          # 从历史记录行中再次提取速度数值，用于排序
-                          match = re.search(r'(\d+)\s*kB/s', line, re.IGNORECASE)
-                          speed_val = int(match.group(1)) if match else 0
-                          
-                          # 构造对象，主要为了复用 raw_line 和 speed_int
-                          node = IpNode(current_ip, "", "", "", "", "", raw_line=line)
-                          node.speed_int = speed_val
-                          history_nodes.append(node)
-              except Exception as e:
-                  print(f"读取历史文件出错: {e}")
+                          if len(parts) >= 1:
+                              # 历史文件第一列是 IP
+                              ip = parts[0]
+                              # 传入 raw_line，速度会在 init 中尝试从字符串提取
+                              nodes.append(IpNode(ip, "", "", "", "", "", raw_line=line))
+              except:
+                  pass
+              return nodes
+
+          def update_log(msg):
+              # 1. 读取旧日志
+              lines = []
+              if os.path.exists(F_LOG):
+                  try:
+                      with open(F_LOG, 'r', encoding='utf-8') as f:
+                          lines = f.readlines()
+                  except:
+                      pass
               
-              return history_nodes
+              # 2. 插入新日志到顶部 (索引0)
+              lines.insert(0, msg + "\n")
+              
+              # 3. 截取前30行
+              lines = lines[:MAX_LOG_LINES]
+              
+              # 4. 写回文件
+              with open(F_LOG, 'w', encoding='utf-8') as f:
+                  f.writelines(lines)
 
           if __name__ == "__main__":
-              # 1. 准备时间
+              # 时间准备
               utc_now = datetime.now(timezone.utc)
               bj_time = utc_now + timedelta(hours=8)
               time_str = bj_time.strftime('%Y-%m-%d %H:%M:%S')
 
-              # 2. 获取当前数据并排序
+              # 1. 获取并处理【当前/15分钟】数据
               current_nodes = fetch_current_data()
+              # 按速度降序排序
               current_nodes.sort(key=lambda x: x.speed_int, reverse=True)
 
-              # 3. 写入本次抓取结果 (FILE_CURRENT_IP)
-              with open(CURRENT_IP_FILE, 'w', encoding='utf-8') as f:
+              # 写入 15分钟_纯IP
+              with open(F_15M_IP, 'w', encoding='utf-8') as f:
                   for node in current_nodes:
                       f.write(f"{node.ip}\n")
-              print(f"已写入 {len(current_nodes)} 个IP到 {CURRENT_IP_FILE}")
+              
+              # 写入 15分钟_完整信息
+              with open(F_15M_INFO, 'w', encoding='utf-8') as f:
+                  for node in current_nodes:
+                      f.write(f"{node.raw_line}\n")
+              
+              print(f"本次更新: {len(current_nodes)} 个IP")
 
-              # 4. 历史排名逻辑 (合并 -> 去重 -> 排序 -> 取前30)
-              history_nodes = load_history()
+              # 2. 处理【历史最快】数据
+              history_nodes = load_history_nodes()
               
+              # 合并去重逻辑 (Map: IP -> Node)
               ip_map = {}
+              # 先载入历史
+              for n in history_nodes:
+                  if n.ip not in ip_map or n.speed_int > ip_map[n.ip].speed_int:
+                      ip_map[n.ip] = n
+              # 再载入当前(如果当前速度更快，则覆盖)
+              for n in current_nodes:
+                  if n.ip not in ip_map or n.speed_int > ip_map[n.ip].speed_int:
+                      ip_map[n.ip] = n
               
-              # 先加载历史数据
-              for node in history_nodes:
-                  if node.ip not in ip_map or node.speed_int > ip_map[node.ip].speed_int:
-                      ip_map[node.ip] = node
-                      
-              # 再融合新抓取数据 (如果新抓取的同IP速度更快，则更新)
-              for node in current_nodes:
-                  if node.ip not in ip_map or node.speed_int > ip_map[node.ip].speed_int:
-                      ip_map[node.ip] = node
-              
-              # 转列表，按速度降序
-              merged_list = list(ip_map.values())
-              merged_list.sort(key=lambda x: x.speed_int, reverse=True)
-              
-              # 截取前30名
-              top_30 = merged_list[:MAX_HISTORY_COUNT]
-              
-              # 5. 写入历史详细文件 (FILE_HISTORY_DETAIL)
-              with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+              # 转回列表并Top30排序
+              merged = list(ip_map.values())
+              merged.sort(key=lambda x: x.speed_int, reverse=True)
+              top_30 = merged[:MAX_HISTORY_COUNT]
+
+              # 写入 历史_完整信息
+              with open(F_HIST_INFO, 'w', encoding='utf-8') as f:
                   for node in top_30:
                       f.write(f"{node.raw_line}\n")
               
-              # 6. 写入历史纯IP文件 (FILE_HISTORY_IP)
-              with open(HISTORY_IP_FILE, 'w', encoding='utf-8') as f:
+              # 写入 历史_纯IP
+              with open(F_HIST_IP, 'w', encoding='utf-8') as f:
                   for node in top_30:
                       f.write(f"{node.ip}\n")
 
-              # 7. 写入日志 (FILE_LOG)
-              log_msg = ""
+              # 3. 写入日志 (倒序，限30行)
               if current_nodes:
-                  fastest = current_nodes[0]
-                  log_msg = f"[{time_str}] 更新成功 | 本次抓取: {len(current_nodes)} | 本次最快: {fastest.ip} ({fastest.speed_str}) | 历史库更新: 前{len(top_30)}名\n"
+                  best = current_nodes[0]
+                  log_msg = f"[{time_str}] 更新成功 | 本次数量:{len(current_nodes)} | 本次最快:{best.ip}({best.speed_int}kB/s)"
               else:
-                  log_msg = f"[{time_str}] 更新失败或无新数据\n"
-                  
-              with open(LOG_FILE, 'a', encoding='utf-8') as f:
-                  f.write(log_msg)
-                  
-              print("所有文件处理完成。")
+                  log_msg = f"[{time_str}] 更新失败或无新数据"
+              
+              update_log(log_msg)
+              print("所有文件更新完毕。")
 
           EOF
 
@@ -224,14 +239,14 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # 直接使用环境变量中的文件名进行提交
-          git add "$FILE_CURRENT_IP" "$FILE_HISTORY_DETAIL" "$FILE_HISTORY_IP" "$FILE_LOG"
+          # 添加所有中文文件名的文件 (使用双引号包裹变量以处理潜在特殊字符)
+          git add "$FILE_15M_IP" "$FILE_15M_INFO" "$FILE_HIST_IP" "$FILE_HIST_INFO" "$FILE_LOG"
           
           if git diff --staged --quiet; then
             echo "没有变更需要提交"
           else
             CURRENT_TIME=$(date "+%Y-%m-%d %H:%M:%S")
-            git commit -m "Auto Update IPs and History: $CURRENT_TIME"
+            git commit -m "Auto Update: $CURRENT_TIME"
             git push
             echo "推送成功"
           fi
