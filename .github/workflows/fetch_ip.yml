@@ -10,23 +10,17 @@ on:
 # 核心配置区域 (输出均为 .md 格式)
 # =========================================================
 env:
-  # --- 1. IPv4 速度测试 (15分钟/历史) ---
-  FILE_15M_IP_V4: "IPv4_15分钟内_纯IP.md"
-  FILE_15M_INFO_V4: "IPv4_15分钟内_完整信息.md"
-  FILE_HIST_IP_V4: "IPv4_历史最快_纯IP.md"
-  FILE_HIST_INFO_V4: "IPv4_历史最快_完整信息.md"
+  # --- 1. 速度测试 (15分钟/历史) ---
+  FILE_15M_IP: "15分钟内_纯IP.md"
+  FILE_15M_INFO: "15分钟内_完整信息.md"
+  FILE_HIST_IP: "历史最快_纯IP.md"
+  FILE_HIST_INFO: "历史最快_完整信息.md"
   
-  # --- 2. IPv6 速度测试 (15分钟/历史) ---
-  FILE_15M_IP_V6: "IPv6_15分钟内_纯IP.md"
-  FILE_15M_INFO_V6: "IPv6_15分钟内_完整信息.md"
-  FILE_HIST_IP_V6: "IPv6_历史最快_纯IP.md"
-  FILE_HIST_INFO_V6: "IPv6_历史最快_完整信息.md"
-  
-  # --- 3. 延迟与数据中心 ---
+  # --- 2. 延迟与数据中心 ---
   FILE_LATENCY: "24小时三网延迟最低统计.md"
   FILE_COLO: "CloudFlare数据中心.md"
   
-  # --- 4. 日志 ---
+  # --- 3. 日志 ---
   FILE_LOG: "运行日志.md"
 
 # =========================================================
@@ -53,14 +47,10 @@ jobs:
       - name: Run Script
         # 传递环境变量
         env:
-          FILE_15M_IP_V4: ${{ env.FILE_15M_IP_V4 }}
-          FILE_15M_INFO_V4: ${{ env.FILE_15M_INFO_V4 }}
-          FILE_HIST_IP_V4: ${{ env.FILE_HIST_IP_V4 }}
-          FILE_HIST_INFO_V4: ${{ env.FILE_HIST_INFO_V4 }}
-          FILE_15M_IP_V6: ${{ env.FILE_15M_IP_V6 }}
-          FILE_15M_INFO_V6: ${{ env.FILE_15M_INFO_V6 }}
-          FILE_HIST_IP_V6: ${{ env.FILE_HIST_IP_V6 }}
-          FILE_HIST_INFO_V6: ${{ env.FILE_HIST_INFO_V6 }}
+          FILE_15M_IP: ${{ env.FILE_15M_IP }}
+          FILE_15M_INFO: ${{ env.FILE_15M_INFO }}
+          FILE_HIST_IP: ${{ env.FILE_HIST_IP }}
+          FILE_HIST_INFO: ${{ env.FILE_HIST_INFO }}
           FILE_LATENCY: ${{ env.FILE_LATENCY }}
           FILE_COLO: ${{ env.FILE_COLO }}
           FILE_LOG: ${{ env.FILE_LOG }}
@@ -73,16 +63,10 @@ jobs:
           from datetime import datetime, timedelta, timezone
 
           # --- 环境变量 ---
-          F_15M_IP_V4 = os.getenv('FILE_15M_IP_V4', 'v4_15m_ip.md')
-          F_15M_INFO_V4 = os.getenv('FILE_15M_INFO_V4', 'v4_15m_info.md')
-          F_HIST_IP_V4 = os.getenv('FILE_HIST_IP_V4', 'v4_hist_ip.md')
-          F_HIST_INFO_V4 = os.getenv('FILE_HIST_INFO_V4', 'v4_hist_info.md')
-          
-          F_15M_IP_V6 = os.getenv('FILE_15M_IP_V6', 'v6_15m_ip.md')
-          F_15M_INFO_V6 = os.getenv('FILE_15M_INFO_V6', 'v6_15m_info.md')
-          F_HIST_IP_V6 = os.getenv('FILE_HIST_IP_V6', 'v6_hist_ip.md')
-          F_HIST_INFO_V6 = os.getenv('FILE_HIST_INFO_V6', 'v6_hist_info.md')
-
+          F_15M_IP = os.getenv('FILE_15M_IP', '15m_ip.md')
+          F_15M_INFO = os.getenv('FILE_15M_INFO', '15m_info.md')
+          F_HIST_IP = os.getenv('FILE_HIST_IP', 'hist_ip.md')
+          F_HIST_INFO = os.getenv('FILE_HIST_INFO', 'hist_info.md')
           F_LATENCY = os.getenv('FILE_LATENCY', 'latency.md')
           F_COLO = os.getenv('FILE_COLO', 'colo.md')
           F_LOG = os.getenv('FILE_LOG', 'log.md')
@@ -95,19 +79,8 @@ jobs:
           def extract_int(s):
               """提取字符串中的第一个整数"""
               if not s: return 0
-              match = re.search(r'(d+)', s)
+              match = re.search(r'(\d+)', s)
               return int(match.group(1)) if match else 999999
-
-          def parse_speed(s):
-              """解析速度字符串为 kB/s 数值"""
-              if not s: return 0
-              s = s.lower()
-              match = re.search(r'([d.]+)', s)
-              if not match: return 0
-              val = float(match.group(1))
-              if 'gb' in s: val *= 1048576
-              elif 'mb' in s: val *= 1024
-              return int(val)
 
           def get_isp_category(isp_name):
               """标准化运营商名称"""
@@ -154,7 +127,7 @@ jobs:
 
           # --- 类定义：测速节点 ---
           class IpNode:
-              def __init__(self, ip, isp, speed_str, bandwidth, latency, datacenter, ip_type=4, raw_line=None):
+              def __init__(self, ip, isp, speed_str, bandwidth, latency, datacenter, raw_line=None):
                   self.ip = ip
                   self.isp = isp
                   self.category = get_isp_category(isp) # 自动分类
@@ -162,31 +135,24 @@ jobs:
                   self.bandwidth = bandwidth
                   self.latency = latency
                   self.datacenter = datacenter
-                  self.ip_type = ip_type # 4 or 6
-                  self.speed_int = parse_speed(speed_str)
+                  self.speed_int = extract_int(speed_str)
                   
                   # 历史数据兼容
                   if raw_line and self.speed_int == 0:
-                      self.speed_int = parse_speed(raw_line) # 尝试从原始行提取
+                      self.speed_int = extract_int(raw_line) # 尝试从原始行提取
 
               def to_md_row(self):
                   return [f"`{self.ip}`", self.isp, self.speed_str, self.bandwidth, self.latency, self.datacenter]
 
-          # --- 1. 抓取测速数据 (v4 和 v6) ---
+          # --- 1. 抓取测速数据 ---
           def fetch_speed_data():
-              # (Name, URL, Type)
               urls = [
-                  ("EdgeOne-v4", "https://www.wetest.vip/page/edgeone/address_v4.html", 4),
-                  ("CloudFlare-v4", "https://www.wetest.vip/page/cloudflare/address_v4.html", 4),
-                  ("CloudFront-v4", "https://www.wetest.vip/page/cloudfront/address_v4.html", 4),
-                  ("CloudFlare-v6", "https://www.wetest.vip/page/cloudflare/address_v6.html", 6),
-                  ("CloudFront-v6", "https://www.wetest.vip/page/cloudfront/address_v6.html", 6)
+                  ("EdgeOne", "https://www.wetest.vip/page/edgeone/address_v4.html"),
+                  ("CloudFlare", "https://www.wetest.vip/page/cloudflare/address_v4.html")
               ]
-              nodes_v4 = []
-              nodes_v6 = []
-              
+              nodes = []
               print("抓取测速数据...")
-              for name, url, ip_type in urls:
+              for name, url in urls:
                   try:
                       resp = requests.get(url, headers=HEADERS, timeout=15)
                       if resp.status_code != 200: continue
@@ -202,24 +168,16 @@ jobs:
                               lat = tds[4].get_text(strip=True)
                               dc = tds[5].get_text(strip=True)
                               
-                              # 简单的有效性检查
-                              valid = False
-                              if ip_type == 4 and ip.count('.') == 3: valid = True
-                              if ip_type == 6 and ':' in ip: valid = True
-                              
-                              if valid:
-                                  node = IpNode(ip, isp, spd, bw, lat, dc, ip_type)
+                              if ip.count('.') == 3:
+                                  node = IpNode(ip, isp, spd, bw, lat, dc)
                                   if node.speed_int > 0:
-                                      if ip_type == 4:
-                                          nodes_v4.append(node)
-                                      else:
-                                          nodes_v6.append(node)
+                                      nodes.append(node)
                           except: continue
                   except Exception as e:
                       print(f"抓取错误 {name}: {e}")
-              return nodes_v4, nodes_v6
+              return nodes
 
-          # --- 2. 抓取并分类延迟数据 (仅 IPv4) ---
+          # --- 2. 抓取并分类延迟数据 ---
           def fetch_latency_categorized():
               url = "https://www.wetest.vip/page/cloudflare/total_v4.html"
               # 结构: {'移动': [{'ip':x, 'lat':50, 'desc':'50ms'}], ...}
@@ -295,17 +253,17 @@ jobs:
               return rows
 
           # --- 历史文件解析 ---
-          def load_history_from_md(file_path, ip_type=4):
+          def load_history_from_md():
               nodes = []
-              if not os.path.exists(file_path): return nodes
+              if not os.path.exists(F_HIST_INFO): return nodes
               try:
-                  with open(file_path, 'r', encoding='utf-8') as f:
+                  with open(F_HIST_INFO, 'r', encoding='utf-8') as f:
                       for line in f:
                           if "|" not in line or "---" in line or "IP" in line: continue
                           parts = [p.strip() for p in line.split('|') if p.strip()]
                           if len(parts) >= 6:
                               ip = parts[0].replace('`', '')
-                              nodes.append(IpNode(ip, parts[1], parts[2], parts[3], parts[4], parts[5], ip_type))
+                              nodes.append(IpNode(ip, parts[1], parts[2], parts[3], parts[4], parts[5]))
               except: pass
               return nodes
 
@@ -323,26 +281,34 @@ jobs:
               lines.insert(0, f"- {msg}\n")
               with open(F_LOG, 'w', encoding='utf-8') as f: f.writelines(lines[:MAX_LOG_LINES])
 
-          # --- 通用处理流程 (V4 或 V6) ---
-          def process_nodes_group(current_nodes, hist_file_info, f_15m_info, f_15m_ip, f_hist_info, f_hist_ip, ip_type_name="IPv4"):
-              # 1. 15分钟数据写入
+          # ================= 主流程 =================
+          if __name__ == "__main__":
+              utc_now = datetime.now(timezone.utc)
+              time_str = (utc_now + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M:%S')
+
+              # 1. 获取当前测速并分类
+              current_nodes = fetch_speed_data()
+              
+              # 分组容器
               group_15m_nodes = {'移动': [], '联通': [], '电信': [], '其他': []}
               group_15m_rows = {'移动': [], '联通': [], '电信': [], '其他': []}
               
               for node in current_nodes:
                   group_15m_nodes[node.category].append(node)
-                  
+              
+              # 组内排序 (速度降序) 并生成表格行
               for cat in group_15m_nodes:
                   group_15m_nodes[cat].sort(key=lambda x: x.speed_int, reverse=True)
                   group_15m_rows[cat] = [n.to_md_row() for n in group_15m_nodes[cat]]
-                  
-              write_categorized_tables(f_15m_info, group_15m_rows, ["IP", "线路", "速度", "带宽", "延迟", "数据中心"], f"{ip_type_name} 15分钟内测速结果")
-              write_categorized_codeblocks(f_15m_ip, group_15m_nodes, f"{ip_type_name} 15分钟内纯IP")
+
+              # 写入 15分钟 文件
+              write_categorized_tables(F_15M_INFO, group_15m_rows, ["IP", "线路", "速度", "带宽", "延迟", "数据中心"], "15分钟内测速结果")
+              write_categorized_codeblocks(F_15M_IP, group_15m_nodes, "15分钟内纯IP")
+
+              # 2. 处理历史数据 (合并 -> 去重 -> 分类 -> 排序 -> 截断)
+              hist_nodes = load_history_from_md()
               
-              # 2. 历史数据处理
-              hist_nodes = load_history_from_md(hist_file_info)
-              
-              # 合并去重
+              # 全局去重 (IP 为 Key)
               ip_map = {}
               for n in hist_nodes:
                   if n.ip not in ip_map or n.speed_int > ip_map[n.ip].speed_int:
@@ -350,50 +316,36 @@ jobs:
               for n in current_nodes:
                   if n.ip not in ip_map or n.speed_int > ip_map[n.ip].speed_int:
                       ip_map[n.ip] = n
-                      
-              # 重新分类
+              
+              # 重新分类历史数据
               group_hist_nodes = {'移动': [], '联通': [], '电信': [], '其他': []}
               group_hist_rows = {'移动': [], '联通': [], '电信': [], '其他': []}
               
               for n in ip_map.values():
                   group_hist_nodes[n.category].append(n)
-                  
-              # 排序截取
+              
+              # 组内排序并截取 Top 30
               for cat in group_hist_nodes:
                   group_hist_nodes[cat].sort(key=lambda x: x.speed_int, reverse=True)
                   group_hist_nodes[cat] = group_hist_nodes[cat][:MAX_HISTORY_COUNT]
                   group_hist_rows[cat] = [n.to_md_row() for n in group_hist_nodes[cat]]
-                  
-              write_categorized_tables(f_hist_info, group_hist_rows, ["IP", "线路", "速度", "带宽", "延迟", "数据中心"], f"{ip_type_name} 历史最快 Top30")
-              write_categorized_codeblocks(f_hist_ip, group_hist_nodes, f"{ip_type_name} 历史最快纯IP")
 
-          # ================= 主流程 =================
-          if __name__ == "__main__":
-              utc_now = datetime.now(timezone.utc)
-              time_str = (utc_now + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M:%S')
+              # 写入 历史 文件
+              write_categorized_tables(F_HIST_INFO, group_hist_rows, ["IP", "线路", "速度", "带宽", "延迟", "数据中心"], "历史最快 Top30")
+              write_categorized_codeblocks(F_HIST_IP, group_hist_nodes, "历史最快纯IP")
 
-              # 1. 获取所有数据
-              current_v4, current_v6 = fetch_speed_data()
-              
-              # 2. 处理 IPv4
-              process_nodes_group(current_v4, F_HIST_INFO_V4, F_15M_INFO_V4, F_15M_IP_V4, F_HIST_INFO_V4, F_HIST_IP_V4, "IPv4")
-              
-              # 3. 处理 IPv6
-              process_nodes_group(current_v6, F_HIST_INFO_V6, F_15M_INFO_V6, F_15M_IP_V6, F_HIST_INFO_V6, F_HIST_IP_V6, "IPv6")
-
-              # 4. 处理延迟统计 (仅 IPv4)
+              # 3. 处理延迟统计 (已在函数中完成分类和排序)
               latency_grouped_rows = fetch_latency_categorized()
               write_categorized_tables(F_LATENCY, latency_grouped_rows, ["IP地址", "延迟详情"], "24小时三网延迟最低 (升序)")
 
-              # 5. 数据中心
+              # 4. 数据中心 (直接表格)
               colo_rows = fetch_colo_data()
               write_single_table(F_COLO, ["代码", "地区", "国家", "洲", "移动IP", "联通IP", "电信IP", "更新时间"], colo_rows)
 
-              # 6. 日志
-              v4_count = len(current_v4)
-              v6_count = len(current_v6)
-              best_v4 = current_v4[0].ip if current_v4 else "无"
-              update_log(f"**{time_str}** 更新 | IPv4数:{v4_count} (最快:{best_v4}) | IPv6数:{v6_count} | 延迟统计已更新")
+              # 5. 日志
+              count_now = len(current_nodes)
+              best_now = current_nodes[0].ip if current_nodes else "无"
+              update_log(f"**{time_str}** 更新 | 测速IP数:{count_now} | 最快:{best_now} | 延迟统计已更新")
               print("任务完成")
 
           EOF
