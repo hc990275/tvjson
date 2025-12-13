@@ -98,6 +98,17 @@ jobs:
               match = re.search(r'(d+)', s)
               return int(match.group(1)) if match else 999999
 
+          def parse_speed(s):
+              """解析速度字符串为 kB/s 数值"""
+              if not s: return 0
+              s = s.lower()
+              match = re.search(r'([d.]+)', s)
+              if not match: return 0
+              val = float(match.group(1))
+              if 'gb' in s: val *= 1048576
+              elif 'mb' in s: val *= 1024
+              return int(val)
+
           def get_isp_category(isp_name):
               """标准化运营商名称"""
               if "移动" in isp_name: return "移动"
@@ -152,11 +163,11 @@ jobs:
                   self.latency = latency
                   self.datacenter = datacenter
                   self.ip_type = ip_type # 4 or 6
-                  self.speed_int = extract_int(speed_str)
+                  self.speed_int = parse_speed(speed_str)
                   
                   # 历史数据兼容
                   if raw_line and self.speed_int == 0:
-                      self.speed_int = extract_int(raw_line) # 尝试从原始行提取
+                      self.speed_int = parse_speed(raw_line) # 尝试从原始行提取
 
               def to_md_row(self):
                   return [f"`{self.ip}`", self.isp, self.speed_str, self.bandwidth, self.latency, self.datacenter]
