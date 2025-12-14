@@ -18,7 +18,7 @@
 
 | 提供商 | DOH 地址 | 状态 |
 | :--- | :--- | :--- |
-| **阿里云** | `https://dns.alidns.com/dns-query` | 默认 |
+| **阿里云** | `dns.alidns.com/dns-query` | 默认 |
 | **腾讯 DNSPod** | `doh.pub/dns-query` | |
 | **360 安全 DNS** | `doh.360.cn/dns-query` | |
 | **ECH官方域名** | `cloudflare-ech.com` | |
