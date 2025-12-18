@@ -23,6 +23,17 @@
 | **360 安全 DNS** | `doh.360.cn/dns-query` | |
 | **ECH官方域名** | `cloudflare-ech.com` | |
 
+# ProxyIP
+
+| **JP** | `ProxyIP.JP.CMLiussss.Net` |
+| **SG** | `ProxyIP.SG.CMLiussss.Net` |
+| **US** | `ProxyIP.US.CMLiussss.Net` |
+
+# 优选订阅地址
+
+| **Soso** | `Cm.Soso.Edu.Kg` 
+| **Cmliussss** | `Sub.Cmliussss.Net` 
+| **O00o** | `Owo.O00o.Ooo` 
 
 ---
 
