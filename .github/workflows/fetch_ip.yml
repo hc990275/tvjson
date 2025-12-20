@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 # =========================================================
-# 核心配置区域 (输出均为 .md 格式)
+# 核心配置区域
 # =========================================================
 env:
   # --- 1. 速度测试 (15分钟/历史) ---
@@ -15,13 +15,14 @@ env:
   FILE_15M_INFO: "15分钟内_完整信息.md"
   FILE_HIST_IP: "历史最快_纯IP.md"
   FILE_HIST_INFO: "历史最快_完整信息.md"
-  
+   
   # --- 2. 延迟与数据中心 ---
   FILE_LATENCY: "24小时三网延迟最低统计.md"
   FILE_COLO: "CloudFlare数据中心.md"
-  
-  # --- 3. 日志 ---
+   
+  # --- 3. 日志与汇总 ---
   FILE_LOG: "运行日志.md"
+  FILE_YXIP: "yxip.txt"  # <--- [新增] 本次运行抓取到的所有IP纯文本
 
 # =========================================================
 
@@ -54,6 +55,7 @@ jobs:
           FILE_LATENCY: ${{ env.FILE_LATENCY }}
           FILE_COLO: ${{ env.FILE_COLO }}
           FILE_LOG: ${{ env.FILE_LOG }}
+          FILE_YXIP: ${{ env.FILE_YXIP }}
         run: |
           cat << 'EOF' > run_script.py
           import requests
@@ -70,6 +72,7 @@ jobs:
           F_LATENCY = os.getenv('FILE_LATENCY', 'latency.md')
           F_COLO = os.getenv('FILE_COLO', 'colo.md')
           F_LOG = os.getenv('FILE_LOG', 'log.md')
+          F_YXIP = os.getenv('FILE_YXIP', 'yxip.txt')
 
           MAX_HISTORY_COUNT = 30 # 每个分类历史保留数量
           MAX_LOG_LINES = 30
@@ -77,13 +80,11 @@ jobs:
 
           # --- 辅助函数 ---
           def extract_int(s):
-              """提取字符串中的第一个整数"""
               if not s: return 0
               match = re.search(r'(\d+)', s)
               return int(match.group(1)) if match else 999999
 
           def get_isp_category(isp_name):
-              """标准化运营商名称"""
               if "移动" in isp_name: return "移动"
               if "联通" in isp_name: return "联通"
               if "电信" in isp_name: return "电信"
@@ -91,28 +92,21 @@ jobs:
 
           # --- Markdown 写入辅助 ---
           def write_categorized_tables(filename, grouped_data, headers, title_prefix=""):
-              """
-              grouped_data: 字典 {'移动': [rows], '联通': [rows]...}
-              """
               order = ["移动", "联通", "电信", "其他"]
               with open(filename, 'w', encoding='utf-8') as f:
                   f.write(f"# {title_prefix} (分类统计)\n\n")
                   for isp in order:
                       rows = grouped_data.get(isp, [])
                       if not rows: continue
-                      
                       f.write(f"### {isp} ({len(rows)}个)\n")
-                      # 表头
                       f.write("| " + " | ".join(headers) + " |\n")
                       f.write("| " + " | ".join(['---'] * len(headers)) + " |\n")
-                      # 内容
                       for row in rows:
                           row_str = [str(x) if x else " " for x in row]
                           f.write("| " + " | ".join(row_str) + " |\n")
                       f.write("\n")
 
           def write_categorized_codeblocks(filename, grouped_nodes, title_prefix=""):
-              """纯IP文件也按分类写入代码块"""
               order = ["移动", "联通", "电信", "其他"]
               with open(filename, 'w', encoding='utf-8') as f:
                   f.write(f"# {title_prefix} (纯IP)\n\n")
@@ -125,21 +119,18 @@ jobs:
                           f.write(f"{node.ip}\n")
                       f.write("```\n\n")
 
-          # --- 类定义：测速节点 ---
           class IpNode:
               def __init__(self, ip, isp, speed_str, bandwidth, latency, datacenter, raw_line=None):
                   self.ip = ip
                   self.isp = isp
-                  self.category = get_isp_category(isp) # 自动分类
+                  self.category = get_isp_category(isp)
                   self.speed_str = speed_str
                   self.bandwidth = bandwidth
                   self.latency = latency
                   self.datacenter = datacenter
                   self.speed_int = extract_int(speed_str)
-                  
-                  # 历史数据兼容
                   if raw_line and self.speed_int == 0:
-                      self.speed_int = extract_int(raw_line) # 尝试从原始行提取
+                      self.speed_int = extract_int(raw_line)
 
               def to_md_row(self):
                   return [f"`{self.ip}`", self.isp, self.speed_str, self.bandwidth, self.latency, self.datacenter]
@@ -167,7 +158,6 @@ jobs:
                               spd = tds[3].get_text(strip=True)
                               lat = tds[4].get_text(strip=True)
                               dc = tds[5].get_text(strip=True)
-                              
                               if ip.count('.') == 3:
                                   node = IpNode(ip, isp, spd, bw, lat, dc)
                                   if node.speed_int > 0:
@@ -180,34 +170,24 @@ jobs:
           # --- 2. 抓取并分类延迟数据 ---
           def fetch_latency_categorized():
               url = "https://www.wetest.vip/page/cloudflare/total_v4.html"
-              # 结构: {'移动': [{'ip':x, 'lat':50, 'desc':'50ms'}], ...}
               grouped = {'移动': [], '联通': [], '电信': []}
-              
               print("抓取延迟数据...")
               try:
                   resp = requests.get(url, headers=HEADERS, timeout=15)
                   if resp.status_code == 200:
                       soup = BeautifulSoup(resp.text, 'html.parser')
-                      # 网页结构：IP | 移动延迟 | 联通延迟 | 电信延迟
                       for tr in soup.find_all('tr'):
                           tds = tr.find_all('td')
                           if len(tds) < 4: continue
-                          
                           ip = tds[0].get_text(strip=True)
                           if ip.count('.') != 3: continue
-                          
-                          # 提取三网数据
-                          cm_str = tds[1].get_text(strip=True) # 移动
-                          cu_str = tds[2].get_text(strip=True) # 联通
-                          ct_str = tds[3].get_text(strip=True) # 电信
-                          
-                          # 放入各自的列表 (为了单独排序)
-                          # 只有当延迟有效时才加入
+                          cm_str = tds[1].get_text(strip=True)
+                          cu_str = tds[2].get_text(strip=True)
+                          ct_str = tds[3].get_text(strip=True)
                           cm_val = extract_int(cm_str)
                           cu_val = extract_int(cu_str)
                           ct_val = extract_int(ct_str)
 
-                          # 构建统一的行数据: [IP, 延迟详情]
                           if cm_val < 900: 
                               grouped['移动'].append({'val': cm_val, 'row': [f"`{ip}`", cm_str]})
                           if cu_val < 900:
@@ -217,15 +197,11 @@ jobs:
               except Exception as e:
                   print(f"延迟数据抓取失败: {e}")
               
-              # 排序逻辑：按延迟升序 (val 越小越好)
               result_rows = {}
               for isp in grouped:
-                  # 排序
                   grouped[isp].sort(key=lambda x: x['val'])
-                  # 取前15个，并提取 row
                   top_items = grouped[isp][:15]
                   result_rows[isp] = [item['row'] for item in top_items]
-                  
               return result_rows
 
           # --- 3. 抓取数据中心 ---
@@ -252,7 +228,6 @@ jobs:
               except: pass
               return rows
 
-          # --- 历史文件解析 ---
           def load_history_from_md():
               nodes = []
               if not os.path.exists(F_HIST_INFO): return nodes
@@ -286,29 +261,22 @@ jobs:
               utc_now = datetime.now(timezone.utc)
               time_str = (utc_now + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M:%S')
 
-              # 1. 获取当前测速并分类
+              # 1. 获取当前测速 (本次运行)
               current_nodes = fetch_speed_data()
               
-              # 分组容器
               group_15m_nodes = {'移动': [], '联通': [], '电信': [], '其他': []}
               group_15m_rows = {'移动': [], '联通': [], '电信': [], '其他': []}
-              
               for node in current_nodes:
                   group_15m_nodes[node.category].append(node)
-              
-              # 组内排序 (速度降序) 并生成表格行
               for cat in group_15m_nodes:
                   group_15m_nodes[cat].sort(key=lambda x: x.speed_int, reverse=True)
                   group_15m_rows[cat] = [n.to_md_row() for n in group_15m_nodes[cat]]
 
-              # 写入 15分钟 文件
               write_categorized_tables(F_15M_INFO, group_15m_rows, ["IP", "线路", "速度", "带宽", "延迟", "数据中心"], "15分钟内测速结果")
               write_categorized_codeblocks(F_15M_IP, group_15m_nodes, "15分钟内纯IP")
 
-              # 2. 处理历史数据 (合并 -> 去重 -> 分类 -> 排序 -> 截断)
+              # 2. 处理历史数据
               hist_nodes = load_history_from_md()
-              
-              # 全局去重 (IP 为 Key)
               ip_map = {}
               for n in hist_nodes:
                   if n.ip not in ip_map or n.speed_int > ip_map[n.ip].speed_int:
@@ -317,35 +285,56 @@ jobs:
                   if n.ip not in ip_map or n.speed_int > ip_map[n.ip].speed_int:
                       ip_map[n.ip] = n
               
-              # 重新分类历史数据
               group_hist_nodes = {'移动': [], '联通': [], '电信': [], '其他': []}
               group_hist_rows = {'移动': [], '联通': [], '电信': [], '其他': []}
-              
               for n in ip_map.values():
                   group_hist_nodes[n.category].append(n)
-              
-              # 组内排序并截取 Top 30
               for cat in group_hist_nodes:
                   group_hist_nodes[cat].sort(key=lambda x: x.speed_int, reverse=True)
                   group_hist_nodes[cat] = group_hist_nodes[cat][:MAX_HISTORY_COUNT]
                   group_hist_rows[cat] = [n.to_md_row() for n in group_hist_nodes[cat]]
 
-              # 写入 历史 文件
               write_categorized_tables(F_HIST_INFO, group_hist_rows, ["IP", "线路", "速度", "带宽", "延迟", "数据中心"], "历史最快 Top30")
               write_categorized_codeblocks(F_HIST_IP, group_hist_nodes, "历史最快纯IP")
 
-              # 3. 处理延迟统计 (已在函数中完成分类和排序)
+              # 3. 处理延迟统计 (本次运行)
               latency_grouped_rows = fetch_latency_categorized()
               write_categorized_tables(F_LATENCY, latency_grouped_rows, ["IP地址", "延迟详情"], "24小时三网延迟最低 (升序)")
 
-              # 4. 数据中心 (直接表格)
+              # 4. 数据中心
               colo_rows = fetch_colo_data()
               write_single_table(F_COLO, ["代码", "地区", "国家", "洲", "移动IP", "联通IP", "电信IP", "更新时间"], colo_rows)
 
-              # 5. 日志
+              # 5. [修改] 仅收集“本次运行”发现的IP并去重写入 yxip.txt
+              current_unique_ips = set()
+              
+              # 来源A: 本次测速结果 (current_nodes)
+              for node in current_nodes:
+                  current_unique_ips.add(node.ip)
+              
+              # 来源B: 本次延迟测试结果 (latency_grouped_rows)
+              # 注意：latency_grouped_rows 里面只包含Top15，如果你需要所有扫描到的延迟IP，
+              # 需要改 fetch_latency_categorized 返回所有，但目前网页结构限制只能拿到Top，
+              # 这里我们收集所有出现在结果中的IP
+              for isp, rows in latency_grouped_rows.items():
+                  for row in rows:
+                      raw_ip = row[0].replace('`', '').strip() # 去掉 Markdown 符号
+                      if raw_ip:
+                          current_unique_ips.add(raw_ip)
+              
+              # 覆盖写入 (只保存本次)
+              try:
+                  with open(F_YXIP, 'w', encoding='utf-8') as f:
+                      for ip in sorted(list(current_unique_ips)):
+                          f.write(f"{ip}\n")
+              except Exception as e:
+                  print(f"写入YXIP失败: {e}")
+
+              # 6. 日志
               count_now = len(current_nodes)
+              count_yxip = len(current_unique_ips)
               best_now = current_nodes[0].ip if current_nodes else "无"
-              update_log(f"**{time_str}** 更新 | 测速IP数:{count_now} | 最快:{best_now} | 延迟统计已更新")
+              update_log(f"**{time_str}** 更新 | 测速IP:{count_now} | 本次抓取去重IP:{count_yxip} | 最快:{best_now}")
               print("任务完成")
 
           EOF
@@ -355,10 +344,10 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add *.md
+          git add *.md *.txt
           if git diff --staged --quiet; then
             echo "无变更"
           else
-            git commit -m "Update Categorized IPs: $(date "+%Y-%m-%d %H:%M:%S")"
+            git commit -m "Update IPs: $(date "+%Y-%m-%d %H:%M:%S")"
             git push
           fi
