@@ -30,6 +30,8 @@
 | **US** | `ProxyIP.US.CMLiussss.Net` |
 
 # 优选订阅地址
+https://puuppq.subdsm.top/s/f9059090b14182c04ed388762a328bde
+https://msub.xn--m7r52rosihxm.com/api/v1/client/subscribe?token=0c06a29dafb82d136fa43480104c6cf4
 
 | **Soso** | `Cm.Soso.Edu.Kg` 
 | **Cmliussss** | `Sub.Cmliussss.Net` 
