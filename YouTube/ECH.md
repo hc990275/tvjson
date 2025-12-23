@@ -36,7 +36,7 @@
 
 ---
 
-## 📨 自用
+## 📨 地址
 
 **订阅链接：**
 1. https://puuppq.subdsm.top/s/f9059090b14182c04ed388762a328bde
@@ -54,9 +54,12 @@
 
 ## 💳 Visa 优选域名列表
 
-```text
-[www.visa.com](https://www.visa.com)
-[www.visa.com](https://www.visa.com).sg
-[www.visa.com](https://www.visa.com).hk
-[www.visa.com](https://www.visa.com).tw
-www.visa.co.jp
+| 域名 |
+| :--- |
+| `www.visa.com` |
+| `www.visa.com.sg` |
+| `www.visa.com.hk` |
+| `www.visa.com.tw` |
+| `www.visa.co.jp` |
+
+> **注意：** 上述表格中的 DOH 地址可以直接复制使用。
