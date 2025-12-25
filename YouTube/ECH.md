@@ -61,5 +61,6 @@
 | `www.visa.com.hk` |
 | `www.visa.com.tw` |
 | `www.visa.co.jp` |
+| `1.168.173.110` |
 
 > **注意：** 上述表格中的 DOH 地址可以直接复制使用。
