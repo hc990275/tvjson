@@ -41,7 +41,7 @@
 **订阅链接：**
 1. https://puuppq.subdsm.top/s/f9059090b14182c04ed388762a328bde
 2. https://msub.xn--m7r52rosihxm.com/api/v1/client/subscribe?token=0c06a29dafb82d136fa43480104c6cf4
-3. https://v1.mk/bt7z8ix
+3. https://v1.mk/TpUsfkp
 
 **后端/转换：**
 
