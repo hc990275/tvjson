@@ -33,6 +33,12 @@
 | **JP** | `ProxyIP.JP.CMLiussss.Net` |
 | **SG** | `ProxyIP.SG.CMLiussss.Net` |
 | **US** | `ProxyIP.US.CMLiussss.Net` |
+proxyip.amclubs.camdvr.org 
+proxyip.amclubs.kozow.com 
+🟢地区：新加坡
+proxyip.sg.amclubs.giize.com 
+🟢地区：美国
+proxyip.us.amclubs.gleeze.com
 
 ---
 
